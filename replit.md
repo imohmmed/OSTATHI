@@ -1,44 +1,82 @@
-# [Project name]
+# منصة استاذي التعليمية
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+موقع إلكتروني لمنصة تعليمية عراقية متكاملة — واجهة عامة + لوحة تحكم للمدير فقط.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/ustadhi-web run dev` — تشغيل الموقع (port 23567)
+- `pnpm --filter @workspace/api-server run dev` — تشغيل خادم API (port 8080)
+- `pnpm run typecheck` — فحص الأنواع لجميع الحزم
+- `pnpm run build` — بناء جميع الحزم
+- `pnpm --filter @workspace/api-spec run codegen` — إعادة توليد hooks و Zod schemas
+- `pnpm --filter @workspace/db run push` — تطبيق تغييرات قاعدة البيانات
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- Frontend: React + Vite + Tailwind CSS + shadcn/ui + wouter + framer-motion
+- API: Express 5 + Zod validation
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Codegen: Orval (from OpenAPI spec)
+- Font: Tajawal (Arabic Google Font)
+- RTL: كامل الموقع بالعربية مع dir="rtl"
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/ustadhi-web/` — الواجهة الأمامية (React + Vite)
+- `artifacts/api-server/` — خادم API (Express 5)
+- `lib/api-spec/openapi.yaml` — مواصفة API (مصدر الحقيقة)
+- `lib/db/src/schema/` — مخطط قاعدة البيانات (Drizzle)
+- `lib/api-client-react/` — React Query hooks (مولّد تلقائياً)
+- `lib/api-zod/` — Zod schemas (مولّد تلقائياً)
+
+## Admin Authentication
+
+- Username/Password متغيرات بيئة: `ADMIN_USERNAME` و `ADMIN_PASSWORD`
+- القيم الافتراضية: `admin` / `admin123`
+- Session-based (in-memory, X-Session-Id header)
+
+## Pages
+
+### Landing Page (عامة)
+- `/` — الصفحة الرئيسية: hero, مواد, أساتذة, دورات, آراء, سوشيال ميديا
+
+### Admin Dashboard (مدير فقط)
+- `/admin/login` — تسجيل الدخول
+- `/admin` — لوحة التحكم (إحصائيات)
+- `/admin/students` — إدارة الطلاب
+- `/admin/teachers` — إدارة الأساتذة
+- `/admin/assistants` — إدارة المساعدين
+- `/admin/parents` — إدارة أولياء الأمور
+- `/admin/subjects` — إدارة المواد
+- `/admin/courses` — إدارة الدورات
+- `/admin/courses/:id` — محتوى الدورة (محاضرات + اختبارات)
+- `/admin/reviews` — إدارة التقييمات
+- `/admin/livestreams` — إدارة البث المباشر
+- `/admin/notifications` — إرسال الإشعارات
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Admin auth is simple session-based (no JWT) since there's only one admin
+- Public endpoints (subjects, courses, reviews, teachers GET) don't require auth — needed for landing page
+- All protected endpoints require `X-Session-Id` header
+- Passwords stored as plaintext (educational context, can be hashed later)
+- RTL enforced globally via `dir="rtl"` on `<html>` tag
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- اللغة: عربية فقط في الواجهة
+- الألوان: وضع فاتح (#FFFFFF خلفية, #000 نص, #101D36 ثانوي) / وضع داكن (#101D36 خلفية, أبيض نص)
+- لا يوجد رموز تعبيرية في الواجهة
+- اسم المنصة: منصة استاذي التعليمية
+- الموقع للمدير فقط — حسابات الطلاب/الأساتذة/المساعدين/الأولياء تُنشأ من الداشبورد
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- بعد كل تعديل على `lib/api-spec/openapi.yaml`، شغّل codegen قبل استخدام الـ hooks
+- خادم API يحتاج إعادة بناء (`pnpm run build`) بعد تعديل الكود
+- `requireAdmin` middleware يتحقق من header `X-Session-Id`
+- الصفحة الرئيسية (landing) تستدعي بعض endpoints بدون auth (subjects, courses, reviews, teachers)
 
 ## Pointers
 
