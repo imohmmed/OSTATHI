@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   social: { alignItems: 'center', gap: 12, marginTop: 30, paddingBottom: 10 },
   socialTitle: {},
   socialRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center' },
-  socialBtn: { alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+  socialBtn: { alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16 },
   socialLabel: {},
   // Teacher-specific
   teacherHero: { paddingHorizontal: 20, paddingBottom: 28, alignItems: 'center', gap: 8 },
