@@ -9,22 +9,11 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 
-// iOS 26+ liquid glass tabs
+// iOS 26+ liquid glass tabs — defined in forward RTL reading order.
+// iOS system handles RTL tab placement natively.
 function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
-        <Label>الرئيسية</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="courses">
-        <Icon sf={{ default: 'book', selected: 'book.fill' }} />
-        <Label>كورساتي</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="chat">
-        <Icon sf={{ default: 'bubble.left', selected: 'bubble.left.fill' }} />
-        <Label>التواصل</Label>
-      </NativeTabs.Trigger>
       {isTeacher ? (
         <NativeTabs.Trigger name="students">
           <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
@@ -36,6 +25,18 @@ function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
           <Label>الإعدادات</Label>
         </NativeTabs.Trigger>
       )}
+      <NativeTabs.Trigger name="chat">
+        <Icon sf={{ default: 'bubble.left', selected: 'bubble.left.fill' }} />
+        <Label>التواصل</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="courses">
+        <Icon sf={{ default: 'book', selected: 'book.fill' }} />
+        <Label>كورساتي</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="index">
+        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
+        <Label>الرئيسية</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -73,11 +74,37 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
       }}
     >
       {/*
-        Tabs are defined in REVERSE order so that in Arabic RTL layout,
-        الرئيسية appears on the right (the natural start in Arabic).
-        Visual order on screen (left → right): طلابي/الإعدادات | التواصل | كورساتي | الرئيسية
-        Arabic reading (right → left):         الرئيسية | كورساتي | التواصل | طلابي/الإعدادات
+        RTL layout flips tab visual order: first tab in code → appears on the RIGHT.
+        Desired visual (right → left): الرئيسية | كورساتي | التواصل | طلابي/الإعدادات
+        So code order must be:         index | courses | chat | students/settings
       */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'الرئيسية',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="courses"
+        options={{
+          title: 'كورساتي',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'التواصل',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={22} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="students"
         options={{
@@ -95,33 +122,6 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
           href: isTeacher ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'التواصل',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="courses"
-        options={{
-          title: 'كورساتي',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'الرئيسية',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
           ),
         }}
       />
