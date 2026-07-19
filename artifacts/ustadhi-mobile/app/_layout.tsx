@@ -90,6 +90,26 @@ function RootLayoutNav() {
           headerTitleAlign: 'center',
         }}
       />
+      <Stack.Screen
+        name="conversation/[teacherId]"
+        options={{
+          headerBackTitle: 'رجوع',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#101D36' },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { fontFamily: 'Tajawal_700Bold', color: '#ffffff' },
+        }}
+      />
+      <Stack.Screen
+        name="inbox/[studentId]"
+        options={{
+          headerBackTitle: 'رجوع',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#101D36' },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { fontFamily: 'Tajawal_700Bold', color: '#ffffff' },
+        }}
+      />
     </Stack>
   );
 }

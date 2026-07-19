@@ -1,8 +1,7 @@
 /**
  * صفحة محادثة الطالب مع أستاذ معين
- * Student → Teacher conversation page
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -25,7 +24,6 @@ import * as Haptics from 'expo-haptics';
 import colors from '@/constants/colors';
 
 export default function ConversationPage() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { fontScale } = useApp();
   const { user } = useAuth();
@@ -34,10 +32,9 @@ export default function ConversationPage() {
 
   const params = useLocalSearchParams<{ teacherId: string; teacherName: string }>();
   const teacherId = Number(params.teacherId);
-  const teacherName = params.teacherName ?? 'الأستاذ';
+  const teacherName = decodeURIComponent(params.teacherName ?? 'الأستاذ');
 
   const [draft, setDraft] = useState('');
-  const listRef = useRef<FlatList>(null);
 
   const { data: messages, isLoading } = useStudentConversation(user?.id, teacherId);
   const sendMsg = useSendMessage();
@@ -51,197 +48,134 @@ export default function ConversationPage() {
     );
   };
 
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
-
   return (
-    <KeyboardAvoidingView
-      behavior="padding"
-      style={[styles.container, { backgroundColor: c.background }]}
-    >
-      {/* ── Header (نفس نمط صفحة الكورس) ─── */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: topPad + 8,
-            backgroundColor: colors.navy,
-            borderBottomColor: 'rgba(255,255,255,0.1)',
-          },
-        ]}
+    <>
+      {/* ضبط عنوان الهيدر ديناميكياً باسم الأستاذ */}
+      <Stack.Screen options={{ title: teacherName }} />
+
+      <KeyboardAvoidingView
+        behavior="padding"
+        style={[styles.container, { backgroundColor: c.background }]}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
-        {/* زر الرجوع */}
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <Ionicons name="arrow-forward" size={22} color="#fff" />
-        </TouchableOpacity>
+        {/* ── المحادثة ─── */}
+        {isLoading ? (
+          <View style={styles.loadingCenter}>
+            <ActivityIndicator color={colors.navy} />
+          </View>
+        ) : (
+          <FlatList
+            data={messages ?? []}
+            inverted
+            keyExtractor={(m) => String(m.id)}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+            }}
+            renderItem={({ item }) => (
+              <View style={{ marginBottom: 10 }}>
+                {/* رسالة الطالب */}
+                <View style={[styles.bubbleMe, { backgroundColor: colors.navy }]}>
+                  <Text style={[{ color: '#fff', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 22 }]}>
+                    {item.text}
+                  </Text>
+                  <Text style={[styles.bubbleTime, { color: 'rgba(255,255,255,0.5)' }]}>
+                    {new Date(item.createdAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
 
-        {/* معلومات الأستاذ */}
-        <View style={styles.headerInfo}>
-          <Text
-            style={[styles.headerTitle, { fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs }]}
-            numberOfLines={1}
-          >
-            {teacherName}
-          </Text>
-          <Text style={[styles.headerSub, { fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
-            يرد المساعد عادةً خلال دقائق
-          </Text>
-        </View>
-
-        {/* أيقونة الأستاذ */}
-        <View style={[styles.avatar, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-          <Ionicons name="person" size={18} color="rgba(255,255,255,0.9)" />
-        </View>
-      </View>
-
-      {/* ── المحادثة ─── */}
-      {isLoading ? (
-        <View style={styles.loadingCenter}>
-          <ActivityIndicator color={c.primary} />
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          data={messages ?? []}
-          inverted
-          keyExtractor={(m) => String(m.id)}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            paddingBottom: 8,
-          }}
-          renderItem={({ item }) => (
-            <View style={{ marginBottom: 10 }}>
-              {/* رسالة الطالب (أنا) */}
-              <View style={[styles.bubbleMe, { backgroundColor: colors.navy }]}>
-                <Text style={[{ color: '#fff', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 22 }]}>
-                  {item.text}
-                </Text>
-                <Text style={[styles.bubbleTime, { color: 'rgba(255,255,255,0.5)' }]}>
-                  {new Date(item.createdAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-              </View>
-
-              {/* رد الأستاذ */}
-              {item.replyText ? (
-                <View style={[styles.bubbleThem, { backgroundColor: c.card, borderColor: c.border }]}>
-                  <View style={styles.replyLabel}>
-                    <Ionicons name="person-circle" size={14} color={colors.gold} />
-                    <Text style={[{ color: colors.gold, fontFamily: 'Tajawal_600SemiBold', fontSize: 11 * fs }]}>
-                      {teacherName}
+                {/* رد الأستاذ */}
+                {item.replyText ? (
+                  <View style={[styles.bubbleThem, { backgroundColor: c.card, borderColor: c.border }]}>
+                    <View style={styles.replyLabel}>
+                      <Ionicons name="person-circle" size={14} color={colors.gold} />
+                      <Text style={[{ color: colors.gold, fontFamily: 'Tajawal_600SemiBold', fontSize: 11 * fs }]}>
+                        {teacherName}
+                      </Text>
+                    </View>
+                    <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 22 }]}>
+                      {item.replyText}
+                    </Text>
+                    <Text style={[styles.bubbleTime, { color: c.mutedForeground }]}>
+                      {item.repliedAt
+                        ? new Date(item.repliedAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })
+                        : ''}
                     </Text>
                   </View>
-                  <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 22 }]}>
-                    {item.replyText}
-                  </Text>
-                  <Text style={[styles.bubbleTime, { color: c.mutedForeground }]}>
-                    {item.repliedAt
-                      ? new Date(item.repliedAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })
-                      : ''}
-                  </Text>
-                </View>
-              ) : (
-                /* في انتظار الرد */
-                <View style={[styles.awaitingReply, { backgroundColor: c.muted }]}>
-                  <Ionicons name="time-outline" size={12} color={c.mutedForeground} />
-                  <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
-                    في انتظار رد الأستاذ
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyChat}>
-              <Ionicons name="chatbubbles-outline" size={48} color={c.mutedForeground} />
-              <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>
-                ابدأ محادثتك مع الأستاذ
-              </Text>
-              <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, textAlign: 'center' }]}>
-                اكتب سؤالك وسيرد عليك في أقرب وقت
-              </Text>
-            </View>
-          }
-        />
-      )}
+                ) : (
+                  <View style={[styles.awaitingReply, { backgroundColor: c.muted }]}>
+                    <Ionicons name="time-outline" size={12} color={c.mutedForeground} />
+                    <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
+                      في انتظار رد الأستاذ
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyChat}>
+                <Ionicons name="chatbubbles-outline" size={48} color={c.mutedForeground} />
+                <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>
+                  ابدأ محادثتك مع الأستاذ
+                </Text>
+                <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, textAlign: 'center' }]}>
+                  اكتب سؤالك وسيرد عليك في أقرب وقت
+                </Text>
+              </View>
+            }
+          />
+        )}
 
-      {/* ── خانة الكتابة ─── */}
-      <View
-        style={[
-          styles.inputBar,
-          {
-            borderTopColor: c.border,
-            backgroundColor: c.background,
-            paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 8),
-          },
-        ]}
-      >
-        {/* زر الإرسال */}
-        <TouchableOpacity
-          onPress={handleSend}
+        {/* ── خانة الكتابة ─── */}
+        <View
           style={[
-            styles.sendBtn,
-            { backgroundColor: colors.navy, opacity: draft.trim() ? 1 : 0.35 },
-          ]}
-          disabled={!draft.trim() || sendMsg.isPending}
-        >
-          {sendMsg.isPending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons name="send" size={18} color="#fff" />
-          )}
-        </TouchableOpacity>
-
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="اكتب رسالتك..."
-          placeholderTextColor={c.mutedForeground}
-          style={[
-            styles.input,
+            styles.inputBar,
             {
-              color: c.foreground,
-              backgroundColor: c.card,
-              borderColor: c.border,
-              fontFamily: 'Tajawal_400Regular',
-              fontSize: 14 * fs,
+              borderTopColor: c.border,
+              backgroundColor: c.background,
+              paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 8),
             },
           ]}
-          multiline
-          textAlign="right"
-          onSubmitEditing={handleSend}
-        />
-      </View>
-    </KeyboardAvoidingView>
+        >
+          <TouchableOpacity
+            onPress={handleSend}
+            style={[styles.sendBtn, { backgroundColor: colors.navy, opacity: draft.trim() ? 1 : 0.35 }]}
+            disabled={!draft.trim() || sendMsg.isPending}
+          >
+            {sendMsg.isPending
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Ionicons name="send" size={18} color="#fff" />}
+          </TouchableOpacity>
+
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="اكتب رسالتك..."
+            placeholderTextColor={c.mutedForeground}
+            style={[
+              styles.input,
+              {
+                color: c.foreground,
+                backgroundColor: c.card,
+                borderColor: c.border,
+                fontFamily: 'Tajawal_400Regular',
+                fontSize: 14 * fs,
+              },
+            ]}
+            multiline
+            textAlign="right"
+            onSubmitEditing={handleSend}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
-  // Header
-  header: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    gap: 10,
-  },
-  backBtn: { padding: 6 },
-  headerInfo: { flex: 1 },
-  headerTitle: { color: '#fff', textAlign: 'right' },
-  headerSub: { color: 'rgba(255,255,255,0.55)', textAlign: 'right', marginTop: 1 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Messages
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   bubbleMe: {
     maxWidth: '82%',
@@ -282,8 +216,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   emptyChat: { alignItems: 'center', gap: 10, marginTop: 60 },
-
-  // Input bar
   inputBar: {
     flexDirection: 'row-reverse',
     alignItems: 'flex-end',
