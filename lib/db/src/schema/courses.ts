@@ -12,6 +12,7 @@ export const coursesTable = pgTable("courses", {
   subjectId: integer("subject_id").notNull().references(() => subjectsTable.id, { onDelete: "restrict" }),
   teacherId: integer("teacher_id").notNull().references(() => teachersTable.id, { onDelete: "restrict" }),
   isPublished: boolean("is_published").notNull().default(false),
+  isTrial: boolean("is_trial").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

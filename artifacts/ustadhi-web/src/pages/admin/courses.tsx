@@ -31,6 +31,7 @@ const courseSchema = z.object({
   subjectId: z.coerce.number().min(1, 'المادة مطلوبة'),
   teacherId: z.coerce.number().min(1, 'الأستاذ مطلوب'),
   isPublished: z.boolean().default(false),
+  isTrial: z.boolean().default(false),
 });
 
 export default function CoursesPage() {
@@ -50,7 +51,7 @@ export default function CoursesPage() {
 
   const form = useForm<z.infer<typeof courseSchema>>({
     resolver: zodResolver(courseSchema),
-    defaultValues: { title: '', description: '', thumbnailUrl: '', subjectId: 0, teacherId: 0, isPublished: false },
+    defaultValues: { title: '', description: '', thumbnailUrl: '', subjectId: 0, teacherId: 0, isPublished: false, isTrial: false },
   });
 
   const onSubmit = (values: z.infer<typeof courseSchema>) => {
@@ -79,7 +80,7 @@ export default function CoursesPage() {
     form.reset({
       title: course.title, description: course.description || '', 
       thumbnailUrl: course.thumbnailUrl || '', subjectId: course.subjectId,
-      teacherId: course.teacherId, isPublished: course.isPublished
+      teacherId: course.teacherId, isPublished: course.isPublished, isTrial: course.isTrial ?? false
     });
     setIsAddOpen(true);
   };
@@ -163,6 +164,15 @@ export default function CoursesPage() {
                       <div className="space-y-1 leading-none">
                         <FormLabel>نشر الدورة</FormLabel>
                         <p className="text-sm text-muted-foreground">عند تفعيل هذا الخيار ستكون الدورة مرئية للطلاب.</p>
+                      </div>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="isTrial" render={({field}) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-amber-700 dark:text-amber-400">محاضرة تجريبية</FormLabel>
+                        <p className="text-sm text-muted-foreground">تُعرض هذه الدورة كمحاضرة تجريبية في صفحة الأستاذ لجذب الطلاب.</p>
                       </div>
                     </FormItem>
                   )} />

@@ -70,6 +70,14 @@ function RootLayoutNav() {
           headerTitleAlign: 'center',
         }}
       />
+      <Stack.Screen
+        name="student/[id]"
+        options={{
+          title: 'تفاصيل الطالب',
+          headerBackTitle: 'رجوع',
+          headerTitleAlign: 'center',
+        }}
+      />
     </Stack>
   );
 }

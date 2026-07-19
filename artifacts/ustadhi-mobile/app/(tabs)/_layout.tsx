@@ -2,14 +2,15 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 
-// iOS 26+ liquid glass tabs (no custom colors — system appearance)
-function NativeTabLayout() {
+// iOS 26+ liquid glass tabs
+function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
@@ -24,20 +25,26 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'bubble.left', selected: 'bubble.left.fill' }} />
         <Label>التواصل</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
-        <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
-        <Label>الإعدادات</Label>
-      </NativeTabs.Trigger>
+      {isTeacher ? (
+        <NativeTabs.Trigger name="students">
+          <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
+          <Label>طلابي</Label>
+        </NativeTabs.Trigger>
+      ) : (
+        <NativeTabs.Trigger name="settings">
+          <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
+          <Label>الإعدادات</Label>
+        </NativeTabs.Trigger>
+      )}
     </NativeTabs>
   );
 }
 
-function ClassicTabLayout() {
+function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
   const colors = useColors();
   const { effectiveTheme } = useApp();
   const isDark = effectiveTheme === 'dark';
   const isIOS = Platform.OS === 'ios';
-  const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
@@ -51,7 +58,7 @@ function ClassicTabLayout() {
           borderTopWidth: 1,
           borderTopColor: colors.border,
           elevation: 0,
-          ...(isWeb ? { height: 64 } : {}),
+          ...(Platform.OS === 'web' ? { height: 64 } : {}),
         },
         tabBarLabelStyle: {
           fontFamily: 'Tajawal_500Medium',
@@ -59,31 +66,35 @@ function ClassicTabLayout() {
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={90}
-              tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
+            <BlurView intensity={90} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
           ) : (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
           ),
       }}
     >
+      {/*
+        Tabs are defined in REVERSE order so that in Arabic RTL layout,
+        الرئيسية appears on the right (the natural start in Arabic).
+        Visual order on screen (left → right): طلابي/الإعدادات | التواصل | كورساتي | الرئيسية
+        Arabic reading (right → left):         الرئيسية | كورساتي | التواصل | طلابي/الإعدادات
+      */}
       <Tabs.Screen
-        name="index"
+        name="students"
         options={{
-          title: 'الرئيسية',
+          title: 'طلابي',
+          href: isTeacher ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="courses"
+        name="settings"
         options={{
-          title: 'كورساتي',
+          title: 'الإعدادات',
+          href: isTeacher ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -97,11 +108,20 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="courses"
         options={{
-          title: 'الإعدادات',
+          title: 'كورساتي',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'الرئيسية',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -110,8 +130,11 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  const { user } = useAuth();
+  const isTeacher = user?.role === 'teacher';
+
   if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
+    return <NativeTabLayout isTeacher={isTeacher} />;
   }
-  return <ClassicTabLayout />;
+  return <ClassicTabLayout isTeacher={isTeacher} />;
 }

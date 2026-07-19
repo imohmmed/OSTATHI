@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Alert,
+  FlatList,
+  Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,11 +20,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { CourseCard } from '@/components/CourseCard';
 import { SkeletonCard } from '@/components/SkeletonLoader';
-import { useGetStudentCourses } from '@workspace/api-client-react';
+import { ProgressBar } from '@/components/ProgressBar';
+import { useGetStudentCourses, useGetCourses, useGetSubjects } from '@workspace/api-client-react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 
-// Progress stored locally: { [courseId]: number (0–100) }
 const PROGRESS_KEY = '@ustadhi_progress';
 
 function useLocalProgress() {
@@ -33,57 +38,259 @@ function useLocalProgress() {
   });
 }
 
-export default function CoursesScreen() {
+function useCreateCourseForTeacher() {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ teacherId, title, subjectId, description }: { teacherId: number; title: string; subjectId: number; description?: string }) => {
+      const res = await fetch(`${base}/api/teachers/${teacherId}/courses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, subjectId, description }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? 'فشل إنشاء الكورس');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['courses'] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────
+// TEACHER COURSES VIEW
+// ─────────────────────────────────────────────
+function TeacherCourses() {
+  const colors = useColors();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { fontScale } = useApp();
+  const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newSubjectId, setNewSubjectId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
+
+  const { data: courses, isLoading, refetch } = useGetCourses({ teacherId: user!.id });
+  const { data: subjects } = useGetSubjects();
+  const createCourse = useCreateCourseForTeacher();
+
+  const onRefresh = async () => { setRefreshing(true); await refetch(); setRefreshing(false); };
+
+  const filtered = (courses ?? []).filter((c) => {
+    if (filter === 'published') return c.isPublished;
+    if (filter === 'draft') return !c.isPublished;
+    return true;
+  });
+
+  const handleCreate = async () => {
+    if (!newTitle.trim()) { Alert.alert('تنبيه', 'يرجى إدخال عنوان الكورس'); return; }
+    if (!newSubjectId) { Alert.alert('تنبيه', 'يرجى اختيار المادة'); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const course = await createCourse.mutateAsync({ teacherId: user!.id, title: newTitle.trim(), subjectId: newSubjectId, description: newDesc.trim() || undefined });
+      setShowCreateModal(false);
+      setNewTitle(''); setNewDesc(''); setNewSubjectId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push(`/course/${course.id}`);
+    } catch (e: any) {
+      Alert.alert('خطأ', e.message);
+    }
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
+        <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>كورساتي</Text>
+        <TouchableOpacity
+          onPress={() => setShowCreateModal(true)}
+          style={[styles.addBtn, { backgroundColor: colors.primary }]}
+        >
+          <Ionicons name="add" size={20} color={colors.primaryForeground} />
+          <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>إنشاء كورس</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter tabs */}
+      <View style={[styles.filterRow, { borderBottomColor: colors.border }]}>
+        {[
+          { key: 'all', label: 'الكل' },
+          { key: 'published', label: 'منشور' },
+          { key: 'draft', label: 'مسودة' },
+        ].map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            onPress={() => setFilter(f.key as any)}
+            style={[styles.filterTab, filter === f.key && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+          >
+            <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 13 * fs, color: filter === f.key ? colors.primary : colors.mutedForeground }]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom, paddingTop: 12 }}
+      >
+        {isLoading ? (
+          [1, 2, 3].map((i) => <View key={i} style={{ marginHorizontal: 16, marginBottom: 12 }}><SkeletonCard /></View>)
+        ) : filtered.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="book-outline" size={48} color={colors.mutedForeground} />
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, textAlign: 'center' }]}>
+              {filter === 'all' ? 'لم تنشئ أي كورسات بعد' : filter === 'published' ? 'لا توجد كورسات منشورة' : 'لا توجد مسودات'}
+            </Text>
+            {filter === 'all' && (
+              <TouchableOpacity onPress={() => setShowCreateModal(true)} style={[styles.createFirstBtn, { backgroundColor: colors.primary }]}>
+                <Ionicons name="add" size={18} color={colors.primaryForeground} />
+                <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>أنشئ أول كورس</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          filtered.map((course) => (
+            <View key={course.id} style={styles.courseWrapper}>
+              <CourseCard
+                title={course.title}
+                teacherName={course.teacherName}
+                subjectName={course.subjectName}
+                lessonsCount={course.lessonsCount}
+                onPress={() => router.push(`/course/${course.id}`)}
+              />
+              <View style={[styles.courseFooter, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.statusBadge, { backgroundColor: course.isPublished ? colors.success + '20' : colors.muted }]}>
+                  <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs, color: course.isPublished ? colors.success : colors.mutedForeground }]}>
+                    {course.isPublished ? 'منشور' : 'مسودة'}
+                  </Text>
+                </View>
+                <Text style={[{ fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, color: colors.mutedForeground }]}>
+                  {course.studentsCount} طالب مشترك
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* Create Course Modal */}
+      <Modal visible={showCreateModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreateModal(false)}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+              <Ionicons name="close" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 18 * fs }]}>
+              إنشاء كورس جديد
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }]}>عنوان الكورس *</Text>
+              <TextInput
+                value={newTitle} onChangeText={setNewTitle}
+                placeholder="مثال: كورس الفيزياء العامة"
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+                style={[styles.textInput, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs }]}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }]}>المادة الدراسية *</Text>
+              <View style={styles.subjectsGrid}>
+                {(subjects ?? []).map((sub) => (
+                  <TouchableOpacity
+                    key={sub.id}
+                    onPress={() => { setNewSubjectId(sub.id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    style={[styles.subjectPill, {
+                      backgroundColor: newSubjectId === sub.id ? colors.primary : colors.card,
+                      borderColor: newSubjectId === sub.id ? colors.primary : colors.border,
+                    }]}
+                  >
+                    {sub.icon && <Text style={{ fontSize: 14 }}>{sub.icon}</Text>}
+                    <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, color: newSubjectId === sub.id ? colors.primaryForeground : colors.foreground }]}>
+                      {sub.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }]}>وصف الكورس</Text>
+              <TextInput
+                value={newDesc} onChangeText={setNewDesc}
+                placeholder="وصف مختصر عن هذا الكورس..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline numberOfLines={3} textAlign="right"
+                style={[styles.textAreaInput, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleCreate}
+              disabled={createCourse.isPending}
+              style={[styles.createBtn, { backgroundColor: colors.primary, opacity: createCourse.isPending ? 0.7 : 1 }]}
+            >
+              <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs }]}>
+                {createCourse.isPending ? 'جاري الإنشاء...' : 'إنشاء الكورس'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
+// STUDENT COURSES VIEW
+// ─────────────────────────────────────────────
+function StudentCourses() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoggedIn } = useAuth();
   const { fontScale } = useApp();
   const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const studentId = user?.role === 'student' ? user.id : undefined;
-  const {
-    data: courses,
-    isLoading,
-    refetch,
-  } = useGetStudentCourses(studentId as number, { query: { enabled: !!studentId } });
-
+  const { data: courses, isLoading, refetch } = useGetStudentCourses(studentId as number, { query: { enabled: !!studentId } });
   const { data: progress } = useLocalProgress();
-  const [refreshing, setRefreshing] = React.useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  };
-
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const onRefresh = async () => { setRefreshing(true); await refetch(); setRefreshing(false); };
 
   if (!isLoggedIn) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-          <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
-            كورساتي
-          </Text>
+          <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>كورساتي</Text>
         </View>
         <View style={styles.gateContainer}>
           <View style={[styles.gateIcon, { backgroundColor: colors.muted }]}>
             <Ionicons name="lock-closed" size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.gateTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
-            سجّل دخولك أولاً
-          </Text>
-          <Text style={[styles.gateSub, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
+          <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>سجّل دخولك أولاً</Text>
+          <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, textAlign: 'center' }]}>
             يجب تسجيل الدخول لعرض الكورسات المخصصة لك
           </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/login')}
-            style={[styles.loginBtn, { backgroundColor: colors.primary }]}
-          >
-            <Text style={[styles.loginBtnText, { color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>
-              تسجيل الدخول
-            </Text>
+          <TouchableOpacity onPress={() => router.push('/login')} style={[styles.loginBtn, { backgroundColor: colors.primary }]}>
+            <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>تسجيل الدخول</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -94,18 +301,12 @@ export default function CoursesScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
         <View>
-          <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
-            كورساتي
-          </Text>
-          <Text style={[styles.greeting, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>
-            مرحباً، {user?.fullName}
-          </Text>
+          <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>كورساتي</Text>
+          <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>مرحباً، {user?.fullName}</Text>
         </View>
         {user?.gradeLevel && (
           <View style={[styles.gradeBadge, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.gradeText, { color: colors.primaryForeground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>
-              {user.gradeLevel}
-            </Text>
+            <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>{user.gradeLevel}</Text>
           </View>
         )}
       </View>
@@ -116,15 +317,11 @@ export default function CoursesScreen() {
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom, paddingTop: 16 }}
       >
         {isLoading ? (
-          [1, 2, 3].map((i) => (
-            <View key={i} style={{ marginHorizontal: 16, marginBottom: 12 }}>
-              <SkeletonCard />
-            </View>
-          ))
+          [1, 2, 3].map((i) => <View key={i} style={{ marginHorizontal: 16, marginBottom: 12 }}><SkeletonCard /></View>)
         ) : !courses?.length ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="book-outline" size={48} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs }]}>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, textAlign: 'center' }]}>
               لم يُضف لك أي كورس بعد
             </Text>
           </View>
@@ -146,47 +343,39 @@ export default function CoursesScreen() {
   );
 }
 
+// ─────────────────────────────────────────────
+// ROOT EXPORT — role-aware
+// ─────────────────────────────────────────────
+export default function CoursesScreen() {
+  const { user } = useAuth();
+  if (user?.role === 'teacher') return <TeacherCourses />;
+  return <StudentCourses />;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
+  topBar: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1 },
   screenTitle: {},
-  greeting: {},
-  gradeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  gradeText: {},
-  gateContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-    gap: 16,
-  },
-  gateIcon: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gateTitle: { textAlign: 'center' },
-  gateSub: { textAlign: 'center', lineHeight: 22 },
-  loginBtn: {
-    marginTop: 8,
-    paddingHorizontal: 36,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  loginBtnText: {},
+  addBtn: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  filterRow: { flexDirection: 'row-reverse', borderBottomWidth: 1, paddingHorizontal: 8 },
+  filterTab: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  courseWrapper: { marginBottom: 2 },
+  courseFooter: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  gateContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 16 },
+  gateIcon: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
+  loginBtn: { marginTop: 8, paddingHorizontal: 36, paddingVertical: 14, borderRadius: 14 },
   emptyContainer: { alignItems: 'center', gap: 12, marginTop: 60 },
-  emptyText: { textAlign: 'center' },
+  createFirstBtn: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+  gradeBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+  modalContainer: { flex: 1 },
+  modalHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  modalTitle: {},
+  fieldGroup: { gap: 8 },
+  fieldLabel: { textAlign: 'right' },
+  textInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  textAreaInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 80, textAlignVertical: 'top' },
+  subjectsGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  subjectPill: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  createBtn: { paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
 });

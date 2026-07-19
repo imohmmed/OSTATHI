@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   StyleSheet,
@@ -17,19 +18,109 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TeacherCard } from '@/components/TeacherCard';
 import { SkeletonRow } from '@/components/SkeletonLoader';
 import { useGetTeachers } from '@workspace/api-client-react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 
-interface Message {
-  id: string;
+interface ApiMessage {
+  id: number;
+  fromStudentId: number;
+  studentName?: string | null;
+  toTeacherId: number;
   text: string;
-  fromMe: boolean;
-  timestamp: number;
+  replyText?: string | null;
+  repliedAt?: string | null;
+  isReadByTeacher: boolean;
+  isReadByStudent: boolean;
+  createdAt: string;
 }
 
-const MSGS_KEY = (teacherId: number) => `@ustadhi_chat_${teacherId}`;
+type TeacherConversation = {
+  teacherId: number;
+  teacherName: string;
+  lastMessage: string;
+  unread: number;
+};
 
-export default function ChatScreen() {
+type StudentConversation = {
+  studentId: number;
+  studentName: string;
+  lastMessage: string;
+  unread: number;
+};
+
+const API_BASE = () => {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  return domain ? `https://${domain}` : '';
+};
+
+function useStudentConversation(studentId: number | undefined, teacherId: number | undefined) {
+  return useQuery<ApiMessage[]>({
+    queryKey: ['conversation', studentId, teacherId],
+    queryFn: async () => {
+      if (!studentId || !teacherId) return [];
+      const res = await fetch(`${API_BASE()}/api/messages/student/${studentId}/teacher/${teacherId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!studentId && !!teacherId,
+    refetchInterval: 5000,
+  });
+}
+
+function useTeacherInbox(teacherId: number | undefined) {
+  return useQuery<ApiMessage[]>({
+    queryKey: ['teacher-inbox', teacherId],
+    queryFn: async () => {
+      if (!teacherId) return [];
+      const res = await fetch(`${API_BASE()}/api/messages/teacher/${teacherId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!teacherId,
+    refetchInterval: 8000,
+  });
+}
+
+function useSendMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ fromStudentId, toTeacherId, text }: { fromStudentId: number; toTeacherId: number; text: string }) => {
+      const res = await fetch(`${API_BASE()}/api/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromStudentId, toTeacherId, text }),
+      });
+      if (!res.ok) throw new Error('فشل إرسال الرسالة');
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['conversation', vars.fromStudentId, vars.toTeacherId] });
+    },
+  });
+}
+
+function useReplyMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ messageId, replyText }: { messageId: number; replyText: string }) => {
+      const res = await fetch(`${API_BASE()}/api/messages/${messageId}/reply`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replyText }),
+      });
+      if (!res.ok) throw new Error('فشل إرسال الرد');
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teacher-inbox'] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────
+// STUDENT CHAT SCREEN
+// ─────────────────────────────────────────────
+function StudentChat() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { fontScale } = useApp();
@@ -37,151 +128,77 @@ export default function ChatScreen() {
   const fs = fontScale;
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null);
   const [selectedTeacherName, setSelectedTeacherName] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
-  const flatListRef = useRef<FlatList>(null);
 
   const { data: teachers, isLoading } = useGetTeachers();
-
-  useEffect(() => {
-    if (selectedTeacherId !== null) {
-      AsyncStorage.getItem(MSGS_KEY(selectedTeacherId)).then((raw) => {
-        if (raw) setMessages(JSON.parse(raw));
-        else setMessages([]);
-      });
-    }
-  }, [selectedTeacherId]);
-
-  const saveMessages = async (msgs: Message[]) => {
-    if (selectedTeacherId !== null) {
-      await AsyncStorage.setItem(MSGS_KEY(selectedTeacherId), JSON.stringify(msgs));
-    }
-  };
+  const { data: messages, isLoading: ml } = useStudentConversation(user?.id, selectedTeacherId ?? undefined);
+  const sendMsg = useSendMessage();
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const sendMessage = () => {
-    if (!draft.trim() || selectedTeacherId === null) return;
+    if (!draft.trim() || selectedTeacherId === null || !user) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newMsg: Message = {
-      id: Date.now().toString() + Math.random().toString(36).slice(2),
-      text: draft.trim(),
-      fromMe: true,
-      timestamp: Date.now(),
-    };
-    const updated = [newMsg, ...messages];
-    setMessages(updated);
-    saveMessages(updated);
+    sendMsg.mutate({ fromStudentId: user.id, toTeacherId: selectedTeacherId, text: draft.trim() });
     setDraft('');
-    // Simulate assistant reply after 2s
-    setTimeout(() => {
-      const reply: Message = {
-        id: Date.now().toString() + Math.random().toString(36).slice(2),
-        text: 'شكراً لتواصلك. سيرد عليك المساعد قريباً إن شاء الله.',
-        fromMe: false,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => {
-        const next = [reply, ...prev];
-        saveMessages(next);
-        return next;
-      });
-    }, 2000);
   };
-
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   if (selectedTeacherId !== null) {
     return (
       <KeyboardAvoidingView behavior="padding" style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Chat header */}
         <View style={[styles.chatHeader, { paddingTop: topPad + 10, borderBottomColor: colors.border, backgroundColor: colors.background }]}>
-          <TouchableOpacity
-            onPress={() => setSelectedTeacherId(null)}
-            style={styles.backBtn}
-          >
+          <TouchableOpacity onPress={() => setSelectedTeacherId(null)} style={styles.backBtn}>
             <Ionicons name="arrow-forward" size={22} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.chatHeaderInfo}>
-            <Text style={[styles.chatTeacherName, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs }]}>
-              {selectedTeacherName}
-            </Text>
-            <Text style={[styles.chatSubtitle, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
-              يرد المساعد عادةً خلال دقائق
-            </Text>
+            <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs, textAlign: 'right' }]}>{selectedTeacherName}</Text>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]}>يرد المساعد عادةً خلال دقائق</Text>
           </View>
         </View>
 
-        {/* Messages (inverted FlatList) */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          inverted
-          keyExtractor={(m) => m.id}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.bubble,
-                item.fromMe
-                  ? [styles.bubbleMe, { backgroundColor: colors.primary }]
-                  : [styles.bubbleThem, { backgroundColor: colors.card, borderColor: colors.border }],
-              ]}
-            >
-              <Text
-                style={[
-                  styles.bubbleText,
-                  {
-                    color: item.fromMe ? colors.primaryForeground : colors.foreground,
-                    fontFamily: 'Tajawal_400Regular',
-                    fontSize: 14 * fs,
-                  },
-                ]}
-              >
-                {item.text}
-              </Text>
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyChat}>
-              <Ionicons name="chatbubbles-outline" size={40} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
-                ابدأ محادثتك مع المساعد
-              </Text>
-            </View>
-          }
-        />
+        {ml ? (
+          <View style={styles.loadingCenter}><ActivityIndicator color={colors.primary} /></View>
+        ) : (
+          <FlatList
+            data={messages ?? []}
+            inverted
+            keyExtractor={(m) => String(m.id)}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}
+            renderItem={({ item }) => (
+              <View style={{ marginBottom: 8 }}>
+                {/* Student message */}
+                <View style={[styles.bubbleMe, { backgroundColor: colors.primary }]}>
+                  <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 20 }]}>{item.text}</Text>
+                </View>
+                {/* Teacher reply */}
+                {item.replyText && (
+                  <View style={[styles.bubbleThem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs, marginBottom: 3 }]}>رد الأستاذ</Text>
+                    <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 20 }]}>{item.replyText}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyChat}>
+                <Ionicons name="chatbubbles-outline" size={40} color={colors.mutedForeground} />
+                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>ابدأ محادثتك مع المساعد</Text>
+              </View>
+            }
+          />
+        )}
 
-        {/* Input */}
-        <View
-          style={[
-            styles.inputBar,
-            { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={sendMessage}
-            style={[styles.sendBtn, { backgroundColor: colors.primary, opacity: draft.trim() ? 1 : 0.4 }]}
-          >
-            <Ionicons name="send" size={18} color={colors.primaryForeground} />
+        <View style={[styles.inputBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) }]}>
+          <TouchableOpacity onPress={sendMessage} style={[styles.sendBtn, { backgroundColor: colors.primary, opacity: draft.trim() ? 1 : 0.4 }]}>
+            {sendMsg.isPending ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Ionicons name="send" size={18} color={colors.primaryForeground} />}
           </TouchableOpacity>
           <TextInput
-            value={draft}
-            onChangeText={setDraft}
+            value={draft} onChangeText={setDraft}
             placeholder="اكتب رسالتك..."
             placeholderTextColor={colors.mutedForeground}
-            style={[
-              styles.input,
-              {
-                color: colors.foreground,
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                fontFamily: 'Tajawal_400Regular',
-                fontSize: 14 * fs,
-              },
-            ]}
-            multiline
-            textAlign="right"
+            style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
+            multiline textAlign="right"
             onSubmitEditing={sendMessage}
           />
         </View>
@@ -192,44 +209,189 @@ export default function ChatScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
-          التواصل
-        </Text>
+        <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>التواصل</Text>
       </View>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>
+      <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, padding: 14, paddingTop: 10, textAlign: 'right' }]}>
         اختر الأستاذ للتواصل معه عبر مساعده
       </Text>
       <FlatList
         data={teachers ?? []}
         keyExtractor={(t) => String(t.id)}
         renderItem={({ item }) => (
-          <TeacherCard
-            fullName={item.fullName}
-            bio={item.bio}
-            avatarUrl={item.avatarUrl}
-            onPress={() => {
-              setSelectedTeacherId(item.id);
-              setSelectedTeacherName(item.fullName);
-            }}
-          />
+          <TeacherCard fullName={item.fullName} bio={item.bio} avatarUrl={item.avatarUrl}
+            onPress={() => { setSelectedTeacherId(item.id); setSelectedTeacherName(item.fullName); }} />
         )}
-        ListHeaderComponent={
-          isLoading ? (
-            <>
-              {[1, 2, 3].map((i) => <SkeletonRow key={i} />)}
-            </>
-          ) : null
-        }
-        ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="person-outline" size={40} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
-                لا يوجد أساتذة حالياً
-              </Text>
+        ListHeaderComponent={isLoading ? <>{[1, 2, 3].map((i) => <SkeletonRow key={i} />)}</> : null}
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="person-outline" size={40} color={colors.mutedForeground} />
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>لا يوجد أساتذة حالياً</Text>
+          </View>
+        ) : null}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 100 + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TEACHER INBOX SCREEN
+// ─────────────────────────────────────────────
+function TeacherChat() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useApp();
+  const { user } = useAuth();
+  const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [selectedStudentName, setSelectedStudentName] = useState('');
+  const [draft, setDraft] = useState('');
+
+  const { data: allMessages, isLoading } = useTeacherInbox(user?.id);
+  const replyMsg = useReplyMessage();
+  const qc = useQueryClient();
+
+  // Group messages by student
+  const conversations: StudentConversation[] = React.useMemo(() => {
+    if (!allMessages) return [];
+    const map = new Map<number, StudentConversation>();
+    for (const msg of allMessages) {
+      const existing = map.get(msg.fromStudentId);
+      const unread = !msg.isReadByTeacher ? 1 : 0;
+      if (!existing) {
+        map.set(msg.fromStudentId, {
+          studentId: msg.fromStudentId,
+          studentName: msg.studentName ?? `طالب #${msg.fromStudentId}`,
+          lastMessage: msg.text,
+          unread,
+        });
+      } else {
+        existing.unread += unread;
+        existing.lastMessage = msg.text;
+      }
+    }
+    return Array.from(map.values());
+  }, [allMessages]);
+
+  const selectedConv = allMessages?.filter((m) => m.fromStudentId === selectedStudentId) ?? [];
+
+  const sendReply = (messageId: number) => {
+    if (!draft.trim()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    replyMsg.mutate({ messageId, replyText: draft.trim() }, {
+      onSuccess: () => {
+        setDraft('');
+        qc.invalidateQueries({ queryKey: ['teacher-inbox', user?.id] });
+      },
+    });
+  };
+
+  const latestUnrepliedId = selectedConv.find((m) => !m.replyText)?.id;
+
+  if (selectedStudentId !== null) {
+    return (
+      <KeyboardAvoidingView behavior="padding" style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.chatHeader, { paddingTop: topPad + 10, borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+          <TouchableOpacity onPress={() => setSelectedStudentId(null)} style={styles.backBtn}>
+            <Ionicons name="arrow-forward" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+          <View style={styles.chatHeaderInfo}>
+            <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs, textAlign: 'right' }]}>{selectedStudentName}</Text>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]}>محادثة مع الطالب</Text>
+          </View>
+        </View>
+
+        <FlatList
+          data={selectedConv}
+          inverted
+          keyExtractor={(m) => String(m.id)}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}
+          renderItem={({ item }) => (
+            <View style={{ marginBottom: 10 }}>
+              <View style={[styles.bubbleThem, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 20 }]}>{item.text}</Text>
+              </View>
+              {item.replyText && (
+                <View style={[styles.bubbleMe, { backgroundColor: colors.primary }]}>
+                  <Text style={[{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs, marginBottom: 3 }]}>ردي</Text>
+                  <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, lineHeight: 20 }]}>{item.replyText}</Text>
+                </View>
+              )}
             </View>
-          ) : null
-        }
+          )}
+          ListEmptyComponent={<View style={styles.emptyChat}><Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>لا توجد رسائل</Text></View>}
+        />
+
+        {/* Reply input — shows only if there's an unreplied message */}
+        {latestUnrepliedId && (
+          <View style={[styles.inputBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) }]}>
+            <TouchableOpacity
+              onPress={() => sendReply(latestUnrepliedId)}
+              style={[styles.sendBtn, { backgroundColor: colors.primary, opacity: draft.trim() ? 1 : 0.4 }]}
+            >
+              {replyMsg.isPending ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Ionicons name="send" size={18} color={colors.primaryForeground} />}
+            </TouchableOpacity>
+            <TextInput
+              value={draft} onChangeText={setDraft}
+              placeholder="اكتب ردك..."
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
+              multiline textAlign="right"
+            />
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
+        <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>الرسائل</Text>
+        {conversations.some((c) => c.unread > 0) && (
+          <View style={[styles.unreadBadge, { backgroundColor: colors.destructive }]}>
+            <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>
+              {conversations.reduce((a, c) => a + c.unread, 0)}
+            </Text>
+          </View>
+        )}
+      </View>
+      <FlatList
+        data={conversations}
+        keyExtractor={(c) => String(c.studentId)}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => { setSelectedStudentId(item.studentId); setSelectedStudentName(item.studentName); }}
+            style={[styles.convRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <View style={[styles.convAvatar, { backgroundColor: colors.primary }]}>
+              <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 16 }]}>{item.studentName[0]}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'right' }]}>{item.studentName}</Text>
+              <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]} numberOfLines={1}>{item.lastMessage}</Text>
+            </View>
+            {item.unread > 0 && (
+              <View style={[styles.msgBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 11 * fs }]}>{item.unread}</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-back" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        )}
+        ListHeaderComponent={isLoading ? <>{[1, 2, 3].map((i) => <SkeletonRow key={i} />)}</> : null}
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubbles-outline" size={48} color={colors.mutedForeground} />
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, textAlign: 'center' }]}>
+              لا توجد رسائل من الطلاب بعد
+            </Text>
+          </View>
+        ) : null}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       />
@@ -237,67 +399,32 @@ export default function ChatScreen() {
   );
 }
 
+// ─────────────────────────────────────────────
+// ROOT EXPORT — role-aware
+// ─────────────────────────────────────────────
+export default function ChatScreen() {
+  const { user } = useAuth();
+  if (user?.role === 'teacher') return <TeacherChat />;
+  return <StudentChat />;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
-  screenTitle: {},
-  subtitle: { padding: 14, paddingTop: 10, textAlign: 'right' },
-  chatHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    gap: 12,
-  },
+  topBar: { paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1 },
+  screenTitle: { textAlign: 'right' },
+  unreadBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
+  chatHeader: { flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, gap: 12 },
   backBtn: { padding: 4 },
   chatHeaderInfo: { flex: 1 },
-  chatTeacherName: { textAlign: 'right' },
-  chatSubtitle: { textAlign: 'right' },
-  bubble: {
-    maxWidth: '80%',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 6,
-  },
-  bubbleMe: {
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-  },
-  bubbleThem: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderBottomLeftRadius: 4,
-  },
-  bubbleText: { lineHeight: 20 },
+  bubbleMe: { maxWidth: '80%', borderRadius: 16, borderBottomRightRadius: 4, padding: 12, marginBottom: 4, alignSelf: 'flex-end' },
+  bubbleThem: { maxWidth: '80%', borderRadius: 16, borderBottomLeftRadius: 4, padding: 12, borderWidth: 1, alignSelf: 'flex-start' },
   emptyChat: { alignItems: 'center', gap: 10, marginTop: 40 },
-  inputBar: {
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    maxHeight: 100,
-  },
-  sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  inputBar: { flexDirection: 'row-reverse', alignItems: 'flex-end', paddingHorizontal: 12, paddingTop: 10, borderTopWidth: 1, gap: 8 },
+  input: { flex: 1, borderRadius: 20, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 10, maxHeight: 100 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  convRow: { flexDirection: 'row-reverse', alignItems: 'center', padding: 14, marginHorizontal: 16, marginBottom: 8, borderRadius: 14, borderWidth: 1, gap: 12 },
+  convAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  msgBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
   emptyContainer: { alignItems: 'center', gap: 10, marginTop: 40 },
-  emptyText: { textAlign: 'center' },
 });

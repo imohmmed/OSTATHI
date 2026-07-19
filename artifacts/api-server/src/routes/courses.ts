@@ -19,11 +19,15 @@ router.get("/courses", async (req, res): Promise<void> => {
   const isPublished = req.query.isPublished !== undefined
     ? req.query.isPublished === "true"
     : undefined;
+  const isTrial = req.query.isTrial !== undefined
+    ? req.query.isTrial === "true"
+    : undefined;
 
   const conditions = [];
   if (subjectId) conditions.push(eq(coursesTable.subjectId, subjectId));
   if (teacherId) conditions.push(eq(coursesTable.teacherId, teacherId));
   if (isPublished !== undefined) conditions.push(eq(coursesTable.isPublished, isPublished));
+  if (isTrial !== undefined) conditions.push(eq(coursesTable.isTrial, isTrial));
 
   const courses = await db
     .select({
@@ -36,6 +40,7 @@ router.get("/courses", async (req, res): Promise<void> => {
       teacherId: coursesTable.teacherId,
       teacherName: teachersTable.fullName,
       isPublished: coursesTable.isPublished,
+      isTrial: coursesTable.isTrial,
       createdAt: coursesTable.createdAt,
     })
     .from(coursesTable)
@@ -55,7 +60,7 @@ router.get("/courses", async (req, res): Promise<void> => {
 });
 
 router.post("/courses", requireAdmin, async (req, res): Promise<void> => {
-  const { title, description, thumbnailUrl, subjectId, teacherId, isPublished } = req.body;
+  const { title, description, thumbnailUrl, subjectId, teacherId, isPublished, isTrial } = req.body;
   if (!title || !subjectId || !teacherId) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -67,6 +72,7 @@ router.post("/courses", requireAdmin, async (req, res): Promise<void> => {
     subjectId,
     teacherId,
     isPublished: isPublished ?? false,
+    isTrial: isTrial ?? false,
   }).returning();
 
   const [subject] = await db.select({ name: subjectsTable.name }).from(subjectsTable).where(eq(subjectsTable.id, subjectId));
@@ -96,6 +102,7 @@ router.get("/courses/:id", async (req, res): Promise<void> => {
       teacherId: coursesTable.teacherId,
       teacherName: teachersTable.fullName,
       isPublished: coursesTable.isPublished,
+      isTrial: coursesTable.isTrial,
       createdAt: coursesTable.createdAt,
     })
     .from(coursesTable)
@@ -115,7 +122,7 @@ router.get("/courses/:id", async (req, res): Promise<void> => {
 router.patch("/courses/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { title, description, thumbnailUrl, subjectId, teacherId, isPublished } = req.body;
+  const { title, description, thumbnailUrl, subjectId, teacherId, isPublished, isTrial } = req.body;
   const updates: Record<string, any> = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description || null;
@@ -123,6 +130,7 @@ router.patch("/courses/:id", requireAdmin, async (req, res): Promise<void> => {
   if (subjectId !== undefined) updates.subjectId = subjectId;
   if (teacherId !== undefined) updates.teacherId = teacherId;
   if (isPublished !== undefined) updates.isPublished = isPublished;
+  if (isTrial !== undefined) updates.isTrial = isTrial;
 
   const [course] = await db.update(coursesTable).set(updates).where(eq(coursesTable.id, id)).returning();
   if (!course) {

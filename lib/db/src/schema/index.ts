@@ -6,3 +6,4 @@ export * from "./courses";
 export * from "./reviews";
 export * from "./livestreams";
 export * from "./notifications";
+export * from "./messages";

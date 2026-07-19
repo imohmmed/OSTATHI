@@ -1,0 +1,6 @@
+- [Tab bar RTL order](tab-rtl-order.md) — ClassicTabs defined in reverse [students,settings,chat,courses,index] so Arabic reads right-to-left correctly.
+- [Role-based tabs](role-based-tabs.md) — teacher sees طلابي (href null students for others), student sees الإعدادات (href null for teachers); 5 tab files always present.
+- [Messages backend](messages-backend.md) — messages table + /api/messages routes for student→teacher messaging and teacher replies; no JWT yet, uses plain IDs in request body.
+- [Teacher course creation](teacher-course-creation.md) — POST /teachers/:id/courses bypasses requireAdmin so teacher can create own courses from mobile; admin still uses POST /courses.
+- [GET /teachers/:id public](teachers-public.md) — made public (removed requireAdmin) so mobile teacher detail page can fetch subjects+studentsCount; subjects array joined in response.
+- [isTrial on courses](istrial-courses.md) — boolean field added to coursesTable; GET /courses supports ?isTrial=true filter; admin courses page has amber-styled isTrial checkbox.
