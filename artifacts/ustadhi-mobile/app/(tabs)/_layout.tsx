@@ -119,7 +119,6 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
         name="settings"
         options={{
           title: 'الإعدادات',
-          href: isTeacher ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
           ),

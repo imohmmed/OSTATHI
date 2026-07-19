@@ -3,8 +3,10 @@ import { db } from "@workspace/db";
 import {
   studentsTable,
   teachersTable,
+  teacherSubjectsTable,
+  teacherGradeLevelsTable,
+  subjectsTable,
   parentsTable,
-  studentsTable as _s,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
@@ -52,6 +54,15 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
       res.status(403).json({ error: "الحساب غير مفعّل. تواصل مع الإدارة." });
       return;
     }
+    const [subjectRows, gradeLevelRows] = await Promise.all([
+      db.select({ id: subjectsTable.id, name: subjectsTable.name, icon: subjectsTable.icon })
+        .from(teacherSubjectsTable)
+        .leftJoin(subjectsTable, eq(teacherSubjectsTable.subjectId, subjectsTable.id))
+        .where(eq(teacherSubjectsTable.teacherId, teacher.id)),
+      db.select({ gradeLevel: teacherGradeLevelsTable.gradeLevel })
+        .from(teacherGradeLevelsTable)
+        .where(eq(teacherGradeLevelsTable.teacherId, teacher.id)),
+    ]);
     res.json({
       id: teacher.id,
       fullName: teacher.fullName,
@@ -59,6 +70,8 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
       role: "teacher",
       bio: teacher.bio,
       avatarUrl: teacher.avatarUrl,
+      subjects: subjectRows,
+      gradeLevels: gradeLevelRows.map(r => r.gradeLevel),
     });
     return;
   }

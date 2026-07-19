@@ -13,6 +13,9 @@ export interface AuthUser {
   avatarUrl?: string;
   studentId?: number;
   studentName?: string;
+  // Teacher-specific
+  subjects?: { id: number; name: string; icon?: string | null }[];
+  gradeLevels?: string[];
 }
 
 interface AuthContextType {
