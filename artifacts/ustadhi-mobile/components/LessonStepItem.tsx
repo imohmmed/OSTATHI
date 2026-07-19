@@ -4,34 +4,44 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import * as Haptics from 'expo-haptics';
 
-type LessonType = 'video' | 'pdf' | 'quiz' | 'assignment' | 'link' | 'livestream' | 'feedback';
+type LessonType =
+  | 'video' | 'pdf' | 'quiz' | 'assignment' | 'link' | 'livestream' | 'feedback'
+  | 'richtext' | 'text' | 'mcq' | 'true_false' | 'fill_blank' | 'qa';
 
-const TYPE_CONFIG: Record<LessonType, { icon: keyof typeof Ionicons.glyphMap; label: string; color: string }> = {
-  video: { icon: 'play-circle', label: 'فيديو', color: '#3b82f6' },
-  pdf: { icon: 'document-text', label: 'PDF', color: '#ef4444' },
-  quiz: { icon: 'help-circle', label: 'اختبار', color: '#f59e0b' },
-  assignment: { icon: 'create', label: 'واجب', color: '#8b5cf6' },
-  link: { icon: 'link', label: 'رابط', color: '#10b981' },
-  livestream: { icon: 'radio', label: 'بث مباشر', color: '#ec4899' },
-  feedback: { icon: 'chatbubble', label: 'تقييم', color: '#06b6d4' },
+const TYPE_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; label: string; color: string }> = {
+  video:      { icon: 'play-circle',       label: 'فيديو',            color: '#3b82f6' },
+  pdf:        { icon: 'document-text',     label: 'PDF',               color: '#ef4444' },
+  quiz:       { icon: 'school',            label: 'اختبار',            color: '#ec4899' },
+  assignment: { icon: 'clipboard',         label: 'واجب',              color: '#64748b' },
+  link:       { icon: 'earth',             label: 'رابط',              color: '#10b981' },
+  livestream: { icon: 'radio',             label: 'بث مباشر',          color: '#f59e0b' },
+  feedback:   { icon: 'chatbubble',        label: 'تقييم',             color: '#06b6d4' },
+  richtext:   { icon: 'create',            label: 'نص منسّق',          color: '#8b5cf6' },
+  text:       { icon: 'document-text',     label: 'نص',                color: '#6b7280' },
+  mcq:        { icon: 'radio-button-on',   label: 'اختيار من متعدد',   color: '#06b6d4' },
+  true_false: { icon: 'checkmark-circle',  label: 'صح وخطأ',           color: '#22c55e' },
+  fill_blank: { icon: 'pencil',            label: 'ملء الفراغات',      color: '#a855f7' },
+  qa:         { icon: 'help-circle',       label: 'أسئلة وأجوبة',      color: '#f97316' },
 };
+
+const FALLBACK_CFG = { icon: 'book-outline' as keyof typeof Ionicons.glyphMap, label: 'محاضرة', color: '#6b7280' };
 
 interface LessonStepItemProps {
   title: string;
-  type: LessonType;
+  type: LessonType | string;
   order: number;
   isCompleted?: boolean;
   isLocked?: boolean;
   duration?: number | null;
-  onPress: () => void;
+  onPress?: () => void;
 }
 
 export function LessonStepItem({ title, type, order, isCompleted, isLocked, duration, onPress }: LessonStepItemProps) {
   const colors = useColors();
-  const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.video;
+  const cfg = TYPE_CONFIG[type] ?? FALLBACK_CFG;
 
   const handlePress = () => {
-    if (isLocked) return;
+    if (isLocked || !onPress) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };

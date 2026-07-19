@@ -14,17 +14,18 @@ import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
   return (
     <NativeTabs>
+      {/* Settings — visible for ALL roles */}
+      <NativeTabs.Trigger name="settings">
+        <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
+        <Label>الإعدادات</Label>
+      </NativeTabs.Trigger>
+      {/* Students — teachers only */}
       {isTeacher ? (
         <NativeTabs.Trigger name="students">
           <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
           <Label>طلابي</Label>
         </NativeTabs.Trigger>
-      ) : (
-        <NativeTabs.Trigger name="settings">
-          <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
-          <Label>الإعدادات</Label>
-        </NativeTabs.Trigger>
-      )}
+      ) : null}
       <NativeTabs.Trigger name="chat">
         <Icon sf={{ default: 'bubble.left', selected: 'bubble.left.fill' }} />
         <Label>التواصل</Label>
