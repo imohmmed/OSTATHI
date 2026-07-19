@@ -403,7 +403,7 @@ export default function SettingsScreen() {
   );
 }
 
-const R = 22; // global corner radius
+const R = 28; // global corner radius
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -431,14 +431,14 @@ const styles = StyleSheet.create({
   groupRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13 },
   rowRight: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   rowLeft: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  iconBox: { width: 32, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
   // Section labels
   groupLabel: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 8 },
 
   // Font size
   fontSizeRow: { flexDirection: 'row-reverse', paddingHorizontal: 10, paddingVertical: 10, gap: 8 },
-  fontBtn: { paddingVertical: 8, borderRadius: 14, alignItems: 'center' },
+  fontBtn: { paddingVertical: 8, borderRadius: 18, alignItems: 'center' },
 
   appNameWrap: { alignItems: 'center', marginTop: 28, marginBottom: 4 },
 });

@@ -81,7 +81,7 @@ const colors = {
   // مشترك — لا يتغير بين الوضعين
   navy: '#101D36',   // اللون الكحلي الأساسي
   gold: '#D4A843',   // اللون الذهبي
-  radius: 22,
+  radius: 28,
 };
 
 export default colors;
