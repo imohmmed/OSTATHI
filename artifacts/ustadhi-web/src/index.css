@@ -229,6 +229,123 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  /* =============================================
+     RTL ARABIC — شامل لكل الصفحات
+     ============================================= */
+
+  /* All text inputs/textareas align right by default */
+  [dir="rtl"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  [dir="rtl"] textarea {
+    text-align: right;
+    direction: rtl;
+  }
+
+  /* Phone numbers keep LTR display but cursor starts right */
+  [dir="rtl"] input[type="tel"],
+  [dir="rtl"] input[dir="ltr"] {
+    direction: ltr;
+    text-align: left;
+  }
+
+  /* Placeholder text alignment */
+  [dir="rtl"] input::placeholder,
+  [dir="rtl"] textarea::placeholder {
+    text-align: right;
+  }
+
+  /* Table headers and cells right-aligned */
+  [dir="rtl"] th {
+    text-align: right !important;
+  }
+
+  [dir="rtl"] td {
+    text-align: right;
+  }
+
+  /* Override Tailwind's physical text-left in RTL context */
+  [dir="rtl"] .text-left:not([dir="ltr"] *) {
+    text-align: right;
+  }
+
+  /* sm:text-left override */
+  @media (min-width: 640px) {
+    [dir="rtl"] .sm\:text-left {
+      text-align: right;
+    }
+  }
+
+  /* Select elements */
+  [dir="rtl"] select {
+    text-align: right;
+    direction: rtl;
+  }
+
+  /* SelectTrigger text */
+  [dir="rtl"] [role="combobox"],
+  [dir="rtl"] [data-radix-select-trigger] {
+    text-align: right;
+  }
+
+  /* Dialog and card content */
+  [dir="rtl"] [role="dialog"] p,
+  [dir="rtl"] [role="alertdialog"] p {
+    text-align: right;
+  }
+
+  /* Badge and label right alignment */
+  [dir="rtl"] label {
+    text-align: right;
+    display: block;
+  }
+
+  /* FormLabel */
+  [dir="rtl"] .form-label,
+  [dir="rtl"] [data-form-label] {
+    text-align: right;
+  }
+
+  /* Fix space-x utilities in RTL (don't auto-flip) */
+  [dir="rtl"] .space-x-1 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 1;
+  }
+  [dir="rtl"] .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 1;
+  }
+  [dir="rtl"] .space-x-3 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 1;
+  }
+  [dir="rtl"] .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 1;
+  }
+
+  /* Checkbox form items with space-x */
+  [dir="rtl"] .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 0;
+  }
+
+  /* Navigation menu */
+  [dir="rtl"] nav a {
+    text-align: right;
+  }
+
+  /* Cards text */
+  [dir="rtl"] .card-title,
+  [dir="rtl"] [class*="CardTitle"],
+  [dir="rtl"] [class*="card-title"] {
+    text-align: right;
+  }
+
+  /* Toast notification */
+  [dir="rtl"] [class*="toast"] {
+    text-align: right;
+  }
+
+  /* Checkbox & radio: keep LTR internally */
+  [dir="rtl"] input[type="checkbox"],
+  [dir="rtl"] input[type="radio"] {
+    direction: ltr;
+  }
 }
 
 /**
