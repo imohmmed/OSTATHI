@@ -199,8 +199,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
-  cardTitle: {},
-  cardSub: { marginTop: -8 },
+  cardTitle: { textAlign: 'right' },
+  cardSub: { marginTop: -8, textAlign: 'right' },
   fieldWrap: { gap: 6 },
   fieldLabel: { textAlign: 'right' },
   inputRow: {
