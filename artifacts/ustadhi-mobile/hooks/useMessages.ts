@@ -10,14 +10,42 @@ export interface ApiMessage {
   fromStudentId: number;
   studentName?: string | null;
   toTeacherId: number;
+  // رسالة الطالب
   text: string;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;  // 'image' | 'file'
+  attachmentName?: string | null;
+  // الرد
   replyText?: string | null;
+  replyAttachmentUrl?: string | null;
+  replyAttachmentType?: string | null;
+  replyAttachmentName?: string | null;
+  replierType?: string | null;    // 'teacher' | 'assistant'
+  replierName?: string | null;    // اسم الأستاذ دائماً
   repliedAt?: string | null;
+  // حالة
   isReadByTeacher: boolean;
   isReadByStudent: boolean;
   createdAt: string;
 }
 
+// ── رفع ملف/صورة ─────────────────────────────────────
+export async function uploadAttachment(
+  fileUri: string,
+  fileName: string,
+  mimeType: string,
+): Promise<{ url: string; type: 'image' | 'file'; name: string }> {
+  const form = new FormData();
+  form.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+  const res = await fetch(`${API_BASE()}/api/messages/upload`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error('فشل رفع الملف');
+  return res.json();
+}
+
+// ── محادثة الطالب مع أستاذ معين ─────────────────────
 export function useStudentConversation(studentId?: number, teacherId?: number) {
   return useQuery<ApiMessage[]>({
     queryKey: ['conversation', studentId, teacherId],
@@ -32,6 +60,7 @@ export function useStudentConversation(studentId?: number, teacherId?: number) {
   });
 }
 
+// ── صندوق وارد الأستاذ ───────────────────────────────
 export function useTeacherInbox(teacherId?: number) {
   return useQuery<ApiMessage[]>({
     queryKey: ['teacher-inbox', teacherId],
@@ -42,10 +71,11 @@ export function useTeacherInbox(teacherId?: number) {
       return res.json();
     },
     enabled: !!teacherId,
-    refetchInterval: 8000,
+    refetchInterval: 6000,
   });
 }
 
+// ── إرسال رسالة (طالب → أستاذ) ──────────────────────
 export function useSendMessage() {
   const qc = useQueryClient();
   return useMutation({
@@ -53,15 +83,21 @@ export function useSendMessage() {
       fromStudentId,
       toTeacherId,
       text,
+      attachmentUrl,
+      attachmentType,
+      attachmentName,
     }: {
       fromStudentId: number;
       toTeacherId: number;
       text: string;
+      attachmentUrl?: string;
+      attachmentType?: string;
+      attachmentName?: string;
     }) => {
       const res = await fetch(`${API_BASE()}/api/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromStudentId, toTeacherId, text }),
+        body: JSON.stringify({ fromStudentId, toTeacherId, text, attachmentUrl, attachmentType, attachmentName }),
       });
       if (!res.ok) throw new Error('فشل إرسال الرسالة');
       return res.json();
@@ -72,25 +108,36 @@ export function useSendMessage() {
   });
 }
 
+// ── رد الأستاذ أو المساعد ────────────────────────────
 export function useReplyMessage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
       messageId,
       replyText,
+      replierType,
+      replierName,
+      replyAttachmentUrl,
+      replyAttachmentType,
+      replyAttachmentName,
     }: {
       messageId: number;
       replyText: string;
+      replierType: 'teacher' | 'assistant';
+      replierName: string;
+      replyAttachmentUrl?: string;
+      replyAttachmentType?: string;
+      replyAttachmentName?: string;
     }) => {
       const res = await fetch(`${API_BASE()}/api/messages/${messageId}/reply`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ replyText }),
+        body: JSON.stringify({ replyText, replierType, replierName, replyAttachmentUrl, replyAttachmentType, replyAttachmentName }),
       });
       if (!res.ok) throw new Error('فشل إرسال الرد');
       return res.json();
     },
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['teacher-inbox'] });
     },
   });

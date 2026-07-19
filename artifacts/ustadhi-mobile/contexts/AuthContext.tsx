@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type UserRole = 'student' | 'teacher' | 'parent';
+export type UserRole = 'student' | 'teacher' | 'assistant' | 'parent';
 
 export interface AuthUser {
   id: number;
@@ -11,9 +11,14 @@ export interface AuthUser {
   gradeLevel?: string;
   bio?: string;
   avatarUrl?: string;
+  // طالب
   studentId?: number;
   studentName?: string;
-  // Teacher-specific
+  // مساعد الأستاذ
+  teacherId?: number;
+  teacherName?: string;
+  teacherAvatarUrl?: string;
+  // أستاذ
   subjects?: { id: number; name: string; icon?: string | null }[];
   gradeLevels?: string[];
 }
@@ -43,9 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((data) => {
       if (data) {
-        try {
-          setUser(JSON.parse(data));
-        } catch {}
+        try { setUser(JSON.parse(data)); } catch {}
       }
       setIsLoading(false);
     });

@@ -7,6 +7,7 @@ import {
   teacherGradeLevelsTable,
   subjectsTable,
   parentsTable,
+  assistantsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
@@ -20,7 +21,7 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
     return;
   }
 
-  // Check students
+  // ── طلاب ──────────────────────────────────────────
   const [student] = await db
     .select()
     .from(studentsTable)
@@ -43,7 +44,7 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
     return;
   }
 
-  // Check teachers
+  // ── أساتذة ────────────────────────────────────────
   const [teacher] = await db
     .select()
     .from(teachersTable)
@@ -76,7 +77,36 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
     return;
   }
 
-  // Check parents
+  // ── مساعدو الأساتذة ───────────────────────────────
+  const [assistant] = await db
+    .select()
+    .from(assistantsTable)
+    .where(eq(assistantsTable.username, username));
+
+  if (assistant && assistant.password === password) {
+    if (!assistant.isActive) {
+      res.status(403).json({ error: "الحساب غير مفعّل. تواصل مع الإدارة." });
+      return;
+    }
+    // جلب اسم الأستاذ المرتبط بالمساعد
+    const [linkedTeacher] = await db
+      .select({ id: teachersTable.id, fullName: teachersTable.fullName, avatarUrl: teachersTable.avatarUrl })
+      .from(teachersTable)
+      .where(eq(teachersTable.id, assistant.teacherId));
+
+    res.json({
+      id: assistant.id,
+      fullName: assistant.fullName,
+      phone: assistant.phone,
+      role: "assistant",
+      teacherId: assistant.teacherId,
+      teacherName: linkedTeacher?.fullName ?? "",
+      teacherAvatarUrl: linkedTeacher?.avatarUrl ?? null,
+    });
+    return;
+  }
+
+  // ── أولياء الأمور ─────────────────────────────────
   const [parent] = await db
     .select()
     .from(parentsTable)
