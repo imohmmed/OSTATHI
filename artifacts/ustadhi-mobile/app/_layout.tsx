@@ -47,9 +47,17 @@ function RootLayoutNav() {
         options={{ headerShown: false, animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
+        name="subjects"
+        options={{
+          title: 'المواد الدراسية',
+          headerBackTitle: 'رجوع',
+          headerTitleAlign: 'center',
+        }}
+      />
+      <Stack.Screen
         name="subject/[id]"
         options={{
-          title: 'الأساتذة',
+          title: 'أساتذة المادة',
           headerBackTitle: 'رجوع',
           headerTitleAlign: 'center',
         }}

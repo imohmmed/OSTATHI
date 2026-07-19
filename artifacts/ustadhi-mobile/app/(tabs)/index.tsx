@@ -226,15 +226,12 @@ function StudentHome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { fontScale, setThemeMode, effectiveTheme } = useApp();
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const fs = fontScale;
 
   const { data: subjects, isLoading: sl, refetch: refetchS } = useGetSubjects();
-  const { data: allTeachers, isLoading: tl, refetch: refetchT } = useGetTeachers(
-    selectedSubjectId ? { subjectId: selectedSubjectId } : undefined
-  );
+  const { data: allTeachers, refetch: refetchT } = useGetTeachers();
   const { data: courses, isLoading: cl, refetch: refetchC } = useGetCourses({ isPublished: true });
   const { data: reviews, isLoading: rl, refetch: refetchR } = useGetReviews({ isPublished: true });
 
@@ -299,11 +296,9 @@ function StudentHome() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>المواد الدراسية</Text>
-            {selectedSubjectId && (
-              <TouchableOpacity onPress={() => setSelectedSubjectId(null)}>
-                <Text style={[styles.seeAll, { color: colors.primary, fontFamily: 'Tajawal_500Medium' }]}>الكل</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity onPress={() => router.push('/subjects' as any)}>
+              <Text style={[styles.seeAll, { color: colors.primary, fontFamily: 'Tajawal_500Medium' }]}>الكل</Text>
+            </TouchableOpacity>
           </View>
           {sl ? (
             <FlatList horizontal inverted data={[1, 2, 3, 4]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
@@ -317,8 +312,8 @@ function StudentHome() {
               renderItem={({ item }) => (
                 <SubjectCard
                   name={item.name} icon={item.icon} gradeLevel={item.gradeLevel}
-                  isSelected={selectedSubjectId === item.id}
-                  onPress={() => setSelectedSubjectId(selectedSubjectId === item.id ? null : item.id)}
+                  isSelected={false}
+                  onPress={() => router.push(`/subject/${item.id}` as any)}
                 />
               )}
               showsHorizontalScrollIndicator={false}
@@ -326,18 +321,6 @@ function StudentHome() {
             />
           )}
         </View>
-
-        {/* Teachers for selected subject */}
-        {selectedSubjectId && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs, paddingHorizontal: 16, marginBottom: 12 }]}>الأساتذة</Text>
-            {tl ? [1, 2].map((i) => <SkeletonRow key={i} />) :
-              (allTeachers ?? []).map((t) => (
-                <TeacherCard key={t.id} fullName={t.fullName} bio={t.bio} avatarUrl={t.avatarUrl}
-                  onPress={() => router.push(`/teacher/${t.id}`)} />
-              ))}
-          </View>
-        )}
 
         {/* Courses */}
         <View style={styles.section}>
