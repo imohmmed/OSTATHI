@@ -306,10 +306,12 @@ function StudentHome() {
             )}
           </View>
           {sl ? (
-            <FlatList horizontal data={[1, 2, 3, 4]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+            <FlatList horizontal inverted data={[1, 2, 3, 4]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+          ) : (subjects ?? []).length === 0 ? (
+            <Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right', paddingHorizontal: 16 }]}>لا توجد مواد</Text>
           ) : (
             <FlatList
-              horizontal
+              horizontal inverted
               data={subjects ?? []}
               keyExtractor={(s) => String(s.id)}
               renderItem={({ item }) => (
@@ -321,7 +323,6 @@ function StudentHome() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hList}
-              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right' }]}>لا توجد مواد</Text>}
             />
           )}
         </View>
@@ -344,12 +345,12 @@ function StudentHome() {
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>دوراتنا</Text>
           </View>
           {cl ? (
-            <FlatList horizontal data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+            <FlatList horizontal inverted data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
           ) : (courses ?? []).length === 0 ? (
             <Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right', paddingHorizontal: 16 }]}>لا توجد دورات حالياً</Text>
           ) : (
             <FlatList
-              horizontal
+              horizontal inverted
               data={(courses ?? []).slice(0, 10)}
               keyExtractor={(c) => String(c.id)}
               renderItem={({ item }) => (
@@ -364,12 +365,16 @@ function StudentHome() {
 
         {/* Reviews */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs, paddingHorizontal: 16, marginBottom: 12 }]}>آراء الطلاب</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>آراء الطلاب</Text>
+          </View>
           {rl ? (
-            <FlatList horizontal data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+            <FlatList horizontal inverted data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+          ) : (reviews ?? []).filter((r) => r.isPublished).length === 0 ? (
+            <Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right', paddingHorizontal: 16 }]}>لا توجد آراء حتى الآن</Text>
           ) : (
             <FlatList
-              horizontal
+              horizontal inverted
               data={(reviews ?? []).filter((r) => r.isPublished)}
               keyExtractor={(r) => String(r.id)}
               renderItem={({ item }) => (
@@ -377,7 +382,6 @@ function StudentHome() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hList}
-              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right' }]}>لا توجد آراء حتى الآن</Text>}
             />
           )}
         </View>
