@@ -27,6 +27,14 @@ export const teacherSubjectsTable = pgTable("teacher_subjects", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Teacher grade levels — which grades each teacher teaches
+export const teacherGradeLevelsTable = pgTable("teacher_grade_levels", {
+  id: serial("id").primaryKey(),
+  teacherId: integer("teacher_id").notNull().references(() => teachersTable.id, { onDelete: "cascade" }),
+  gradeLevel: text("grade_level").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const assistantsTable = pgTable("assistants", {
   id: serial("id").primaryKey(),
   fullName: text("full_name").notNull(),

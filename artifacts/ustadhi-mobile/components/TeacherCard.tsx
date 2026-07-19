@@ -125,8 +125,8 @@ const styles = StyleSheet.create({
   },
   initialsLg: { fontSize: 20 },
   vInfo: { flex: 1, gap: 4 },
-  vName: { fontSize: 15 },
-  vBio: { fontSize: 12, lineHeight: 18 },
+  vName: { fontSize: 15, textAlign: 'right' },
+  vBio: { fontSize: 12, lineHeight: 18, textAlign: 'right' },
   badge: {
     alignSelf: 'flex-end',
     paddingHorizontal: 8,

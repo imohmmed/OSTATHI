@@ -4,12 +4,13 @@ import {
   teachersTable,
   assistantsTable,
   teacherSubjectsTable,
+  teacherGradeLevelsTable,
   subjectsTable,
   coursesTable,
   studentCoursesTable,
   studentsTable,
 } from "@workspace/db";
-import { eq, ilike, and, or, inArray, sql } from "drizzle-orm";
+import { eq, ilike, and, or, inArray } from "drizzle-orm";
 import { requireAdmin } from "./admin";
 
 const router: IRouter = Router();
@@ -26,6 +27,22 @@ async function getTeacherSubjects(teacherId: number) {
     .from(teacherSubjectsTable)
     .leftJoin(subjectsTable, eq(teacherSubjectsTable.subjectId, subjectsTable.id))
     .where(eq(teacherSubjectsTable.teacherId, teacherId));
+}
+
+async function getTeacherGradeLevels(teacherId: number): Promise<string[]> {
+  const rows = await db.select({ gradeLevel: teacherGradeLevelsTable.gradeLevel })
+    .from(teacherGradeLevelsTable)
+    .where(eq(teacherGradeLevelsTable.teacherId, teacherId));
+  return rows.map(r => r.gradeLevel);
+}
+
+async function setTeacherGradeLevels(teacherId: number, gradeLevels: string[]) {
+  await db.delete(teacherGradeLevelsTable).where(eq(teacherGradeLevelsTable.teacherId, teacherId));
+  if (gradeLevels.length) {
+    await db.insert(teacherGradeLevelsTable).values(
+      gradeLevels.map(gl => ({ teacherId, gradeLevel: gl }))
+    );
+  }
 }
 
 async function getTeacherStudentCount(teacherId: number): Promise<number> {
@@ -65,6 +82,7 @@ router.get("/teachers", async (req, res): Promise<void> => {
     ...t,
     password: undefined,
     subjectIds: await getTeacherSubjectIds(t.id),
+    gradeLevels: await getTeacherGradeLevels(t.id),
   })));
 
   res.json(result);
@@ -72,7 +90,7 @@ router.get("/teachers", async (req, res): Promise<void> => {
 
 // POST /teachers — admin only
 router.post("/teachers", requireAdmin, async (req, res): Promise<void> => {
-  const { fullName, phone, username, password, bio, avatarUrl, subjectIds } = req.body;
+  const { fullName, phone, username, password, bio, avatarUrl, subjectIds, gradeLevels } = req.body;
   if (!fullName || !phone || !username || !password) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -88,8 +106,11 @@ router.post("/teachers", requireAdmin, async (req, res): Promise<void> => {
       subjectIds.map((sid: number) => ({ teacherId: teacher.id, subjectId: sid }))
     );
   }
+  if (gradeLevels?.length) {
+    await setTeacherGradeLevels(teacher.id, gradeLevels);
+  }
 
-  res.status(201).json({ ...teacher, password: undefined, subjectIds: subjectIds || [] });
+  res.status(201).json({ ...teacher, password: undefined, subjectIds: subjectIds || [], gradeLevels: gradeLevels || [] });
 });
 
 // GET /teachers/:id — PUBLIC (used by mobile teacher detail page)
@@ -98,19 +119,20 @@ router.get("/teachers/:id", async (req, res): Promise<void> => {
   const id = parseInt(raw, 10);
   const [teacher] = await db.select().from(teachersTable).where(eq(teachersTable.id, id));
   if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
-  const [subjectIds, subjects, studentsCount] = await Promise.all([
+  const [subjectIds, subjects, studentsCount, gradeLevels] = await Promise.all([
     getTeacherSubjectIds(id),
     getTeacherSubjects(id),
     getTeacherStudentCount(id),
+    getTeacherGradeLevels(id),
   ]);
-  res.json({ ...teacher, password: undefined, subjectIds, subjects, studentsCount });
+  res.json({ ...teacher, password: undefined, subjectIds, subjects, studentsCount, gradeLevels });
 });
 
 // PATCH /teachers/:id — admin only
 router.patch("/teachers/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { fullName, phone, username, password, bio, avatarUrl, subjectIds, isActive } = req.body;
+  const { fullName, phone, username, password, bio, avatarUrl, subjectIds, gradeLevels, isActive } = req.body;
   const updates: Record<string, any> = {};
   if (fullName !== undefined) updates.fullName = fullName;
   if (phone !== undefined) updates.phone = phone;
@@ -131,8 +153,12 @@ router.patch("/teachers/:id", requireAdmin, async (req, res): Promise<void> => {
       );
     }
   }
+  if (gradeLevels !== undefined) {
+    await setTeacherGradeLevels(id, gradeLevels);
+  }
 
-  res.json({ ...teacher, password: undefined, subjectIds: subjectIds ?? await getTeacherSubjectIds(id) });
+  const currentGradeLevels = gradeLevels ?? await getTeacherGradeLevels(id);
+  res.json({ ...teacher, password: undefined, subjectIds: subjectIds ?? await getTeacherSubjectIds(id), gradeLevels: currentGradeLevels });
 });
 
 // DELETE /teachers/:id — admin only

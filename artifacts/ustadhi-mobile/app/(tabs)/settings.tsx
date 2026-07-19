@@ -229,7 +229,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1 },
-  screenTitle: {},
+  screenTitle: { textAlign: 'right' },
   profileCard: {
     flexDirection: 'row-reverse',
     alignItems: 'center',

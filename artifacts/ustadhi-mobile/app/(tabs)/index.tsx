@@ -306,10 +306,10 @@ function StudentHome() {
             )}
           </View>
           {sl ? (
-            <FlatList horizontal inverted data={[1, 2, 3, 4]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+            <FlatList horizontal data={[1, 2, 3, 4]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
           ) : (
             <FlatList
-              horizontal inverted
+              horizontal
               data={subjects ?? []}
               keyExtractor={(s) => String(s.id)}
               renderItem={({ item }) => (
@@ -321,7 +321,7 @@ function StudentHome() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hList}
-              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>لا توجد مواد</Text>}
+              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right' }]}>لا توجد مواد</Text>}
             />
           )}
         </View>
@@ -344,10 +344,12 @@ function StudentHome() {
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>دوراتنا</Text>
           </View>
           {cl ? (
-            <FlatList horizontal inverted data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+            <FlatList horizontal data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+          ) : (courses ?? []).length === 0 ? (
+            <Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right', paddingHorizontal: 16 }]}>لا توجد دورات حالياً</Text>
           ) : (
             <FlatList
-              horizontal inverted
+              horizontal
               data={(courses ?? []).slice(0, 10)}
               keyExtractor={(c) => String(c.id)}
               renderItem={({ item }) => (
@@ -356,7 +358,6 @@ function StudentHome() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hList}
-              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>لا توجد دورات حالياً</Text>}
             />
           )}
         </View>
@@ -365,10 +366,10 @@ function StudentHome() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs, paddingHorizontal: 16, marginBottom: 12 }]}>آراء الطلاب</Text>
           {rl ? (
-            <FlatList horizontal inverted data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
+            <FlatList horizontal data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
           ) : (
             <FlatList
-              horizontal inverted
+              horizontal
               data={(reviews ?? []).filter((r) => r.isPublished)}
               keyExtractor={(r) => String(r.id)}
               renderItem={({ item }) => (
@@ -376,7 +377,7 @@ function StudentHome() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hList}
-              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular' }]}>لا توجد آراء حتى الآن</Text>}
+              ListEmptyComponent={<Text style={[styles.empty, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', textAlign: 'right' }]}>لا توجد آراء حتى الآن</Text>}
             />
           )}
         </View>
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 12 },
   sectionTitle: {},
   seeAll: { fontSize: 14 },
-  hList: { paddingRight: 16, paddingLeft: 4 },
+  hList: { paddingHorizontal: 16, gap: 0 },
   empty: { fontSize: 14, padding: 16 },
   social: { alignItems: 'center', gap: 12, marginTop: 30, paddingBottom: 10 },
   socialTitle: {},

@@ -26,6 +26,25 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 
+// Iraqi school grade levels
+const GRADE_LEVELS = [
+  'الصف الأول الابتدائي',
+  'الصف الثاني الابتدائي',
+  'الصف الثالث الابتدائي',
+  'الصف الرابع الابتدائي',
+  'الصف الخامس الابتدائي',
+  'الصف السادس الابتدائي',
+  'الصف الأول المتوسط',
+  'الصف الثاني المتوسط',
+  'الصف الثالث المتوسط',
+  'الصف الأول الإعدادي',
+  'الصف الثاني الإعدادي',
+  'الصف الثالث الإعدادي',
+  'الصف الرابع الإعدادي',
+  'الصف الخامس الإعدادي',
+  'الصف السادس الإعدادي',
+];
+
 const teacherSchema = z.object({
   fullName: z.string().min(2, 'الاسم مطلوب'),
   phone: z.string().min(6, 'رقم الهاتف مطلوب'),
@@ -35,6 +54,7 @@ const teacherSchema = z.object({
   avatarUrl: z.string().optional(),
   isActive: z.boolean().default(true),
   subjectIds: z.array(z.number()).default([]),
+  gradeLevels: z.array(z.string()).default([]),
 });
 
 export default function TeachersPage() {
@@ -54,13 +74,13 @@ export default function TeachersPage() {
   const form = useForm<z.infer<typeof teacherSchema>>({
     resolver: zodResolver(teacherSchema),
     defaultValues: {
-      fullName: '', phone: '', username: '', password: '', bio: '', avatarUrl: '', isActive: true, subjectIds: []
+      fullName: '', phone: '', username: '', password: '', bio: '', avatarUrl: '', isActive: true, subjectIds: [], gradeLevels: []
     },
   });
 
   const onSubmit = (values: z.infer<typeof teacherSchema>) => {
     if (editId) {
-      updateTeacher.mutate({ id: editId, data: values }, {
+      updateTeacher.mutate({ id: editId, data: values as any }, {
         onSuccess: () => {
           toast({ title: 'تم التحديث بنجاح' });
           queryClient.invalidateQueries({ queryKey: getGetTeachersQueryKey() });
@@ -86,7 +106,8 @@ export default function TeachersPage() {
     form.reset({
       fullName: teacher.fullName, phone: teacher.phone, username: teacher.username,
       bio: teacher.bio || '', avatarUrl: teacher.avatarUrl || '', isActive: teacher.isActive,
-      subjectIds: teacher.subjectIds || []
+      subjectIds: teacher.subjectIds || [],
+      gradeLevels: teacher.gradeLevels || [],
     });
     setIsAddOpen(true);
   };
@@ -141,6 +162,8 @@ export default function TeachersPage() {
                   <FormField control={form.control} name="bio" render={({field}) => (
                     <FormItem><FormLabel>نبذة تعريفية</FormLabel><FormControl><Textarea {...field}/></FormControl><FormMessage/></FormItem>
                   )} />
+
+                  {/* Subjects */}
                   <FormField control={form.control} name="subjectIds" render={() => (
                     <FormItem>
                       <FormLabel>المواد الدراسية</FormLabel>
@@ -168,6 +191,34 @@ export default function TeachersPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
+
+                  {/* Grade Levels */}
+                  <FormField control={form.control} name="gradeLevels" render={() => (
+                    <FormItem>
+                      <FormLabel>الصفوف الدراسية التي يدرّسها</FormLabel>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-4 rounded-md max-h-52 overflow-y-auto">
+                        {GRADE_LEVELS.map((grade) => (
+                          <FormField key={grade} control={form.control} name="gradeLevels" render={({ field }) => (
+                            <FormItem key={grade} className="flex flex-row items-start space-x-3 space-x-reverse space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(grade)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...field.value, grade])
+                                      : field.onChange(field.value?.filter((v) => v !== grade))
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal text-xs">{grade}</FormLabel>
+                            </FormItem>
+                          )} />
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
                   <DialogFooter className="mt-6">
                     <Button type="submit" disabled={createTeacher.isPending || updateTeacher.isPending}>حفظ</Button>
                   </DialogFooter>
@@ -185,21 +236,34 @@ export default function TeachersPage() {
               <TableHead>الاسم</TableHead>
               <TableHead>اسم المستخدم</TableHead>
               <TableHead>رقم الهاتف</TableHead>
+              <TableHead>الصفوف</TableHead>
               <TableHead>الحالة</TableHead>
               <TableHead>الإجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
             ) : teachers?.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8">لا يوجد أساتذة</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8">لا يوجد أساتذة</TableCell></TableRow>
             ) : (
               teachers?.map((teacher) => (
                 <TableRow key={teacher.id}>
                   <TableCell className="font-medium">{teacher.fullName}</TableCell>
                   <TableCell>{teacher.username}</TableCell>
                   <TableCell dir="ltr" className="text-right">{teacher.phone}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {((teacher as any).gradeLevels ?? []).slice(0, 2).map((gl: string) => (
+                        <Badge key={gl} variant="outline" className="text-xs px-1.5 py-0">{gl}</Badge>
+                      ))}
+                      {((teacher as any).gradeLevels ?? []).length > 2 && (
+                        <Badge variant="outline" className="text-xs px-1.5 py-0 bg-muted">
+                          +{((teacher as any).gradeLevels ?? []).length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {teacher.isActive ? (
                       <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 gap-1"><CheckCircle className="w-3 h-3" /> نشط</Badge>
