@@ -176,8 +176,11 @@ function SimpleProfileCard({ colors, fs }: { colors: ReturnType<typeof useColors
   const initials = user.fullName.split(' ').slice(0, 2).map(w => w[0]).join('');
 
   return (
-    <View style={[styles.profileCard, { backgroundColor: colors.primary }]}>
-      <View style={[styles.profileAvatar, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+    <LinearGradient
+      colors={['#101D36', '#1a2a45']}
+      style={styles.profileCard}
+    >
+      <View style={[styles.profileAvatar, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
         <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 24 * fs }]}>
           {initials}
         </Text>
@@ -192,7 +195,7 @@ function SimpleProfileCard({ colors, fs }: { colors: ReturnType<typeof useColors
           {user.studentName ? ` — ${user.studentName}` : ''}
         </Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -242,15 +245,14 @@ export default function SettingsScreen() {
             <SimpleProfileCard colors={colors} fs={fs} />
           )
         ) : (
-          <TouchableOpacity
-            onPress={() => router.push('/login')}
-            style={[styles.profileCard, { backgroundColor: colors.primary }]}
-          >
-            <Ionicons name="person-circle" size={32} color="#fff" />
-            <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs, flex: 1, textAlign: 'right' }]}>
-              تسجيل الدخول
-            </Text>
-            <Ionicons name="chevron-back" size={18} color="#fff" />
+          <TouchableOpacity onPress={() => router.push('/login')} activeOpacity={0.85}>
+            <LinearGradient colors={['#101D36', '#1a2a45']} style={styles.profileCard}>
+              <Ionicons name="person-circle" size={32} color="#fff" />
+              <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs, flex: 1, textAlign: 'right' }]}>
+                تسجيل الدخول
+              </Text>
+              <Ionicons name="chevron-back" size={18} color="#fff" />
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
@@ -292,7 +294,7 @@ export default function SettingsScreen() {
                   { backgroundColor: fontScale === item.value ? colors.primary : colors.muted, flex: 1 },
                 ]}
               >
-                <Text style={[{ color: fontScale === item.value ? '#fff' : colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 13 }]}>
+                <Text style={[{ color: fontScale === item.value ? colors.primaryForeground : colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 13 }]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>

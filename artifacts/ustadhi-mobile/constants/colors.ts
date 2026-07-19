@@ -61,14 +61,14 @@ const colors = {
     secondary: '#0A0E1A',
     secondaryForeground: '#FFFFFF',
     // ── Muted ────────────────────────────────────────
-    muted: '#1A2A45',
-    mutedForeground: '#8FA0C0',
+    muted: '#1C1C1E',
+    mutedForeground: '#8E8E93',
     // ── Accent ───────────────────────────────────────
-    accent: '#2D4F8A',
+    accent: '#2A2A2E',
     accentForeground: '#FFFFFF',
     // ── حدود ومدخلات ─────────────────────────────────
-    border: '#1E3050',
-    input: '#1A2A45',
+    border: '#2C2C2E',
+    input: '#1C1C1E',
     // ── الذهبي — نفس الأماكن كالوضع النهاري ─────────
     gold: '#D4A843',
     goldForeground: '#101D36',
