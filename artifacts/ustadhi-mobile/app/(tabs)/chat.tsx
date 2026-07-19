@@ -27,6 +27,7 @@ function StudentChatList() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { fontScale } = useApp();
+  const { user } = useAuth();
   const router = useRouter();
   const fs = fontScale;
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
@@ -55,6 +56,10 @@ function StudentChatList() {
             avatarUrl={item.avatarUrl}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (!user) {
+                router.push('/login');
+                return;
+              }
               router.push({
                 pathname: '/conversation/[teacherId]' as any,
                 params: {
