@@ -3,26 +3,21 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useLocation } from 'wouter';
-import { useAdminLogin } from '@workspace/api-client-react';
+import { useAdminLogin, setAuthTokenGetter } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap } from 'lucide-react';
+import { setAdminSession } from '@/lib/admin-fetch';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'اسم المستخدم مطلوب'),
   password: z.string().min(1, 'كلمة المرور مطلوبة'),
 });
-
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLogin() {
@@ -32,34 +27,27 @@ export default function AdminLogin() {
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      username: '',
-      password: '',
-    },
+    defaultValues: { username: '', password: '' },
   });
 
   const onSubmit = (values: LoginFormValues) => {
     loginMutation.mutate({ data: values }, {
-      onSuccess: () => {
-        toast({
-          title: 'تم تسجيل الدخول بنجاح',
-          description: 'جاري تحويلك إلى لوحة التحكم...',
-        });
+      onSuccess: (data: any) => {
+        if (data?.sessionId) {
+          setAdminSession(data.sessionId);
+          setAuthTokenGetter(() => localStorage.getItem('admin_session'));
+        }
+        toast({ title: 'تم تسجيل الدخول بنجاح', description: 'جاري تحويلك إلى لوحة التحكم...' });
         setLocation('/admin');
       },
       onError: () => {
-        toast({
-          title: 'خطأ في تسجيل الدخول',
-          description: 'تأكد من صحة اسم المستخدم وكلمة المرور.',
-          variant: 'destructive',
-        });
+        toast({ title: 'خطأ في تسجيل الدخول', description: 'تأكد من صحة اسم المستخدم وكلمة المرور.', variant: 'destructive' });
       }
     });
   };
 
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative background elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[100px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-400/10 blur-[100px]" />
@@ -78,37 +66,21 @@ export default function AdminLogin() {
         <CardContent className="pb-8">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base">اسم المستخدم</FormLabel>
-                    <FormControl>
-                      <Input placeholder="أدخل اسم المستخدم" className="h-12" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base">كلمة المرور</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="أدخل كلمة المرور" className="h-12" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button 
-                type="submit" 
-                className="w-full h-12 text-lg font-bold"
-                disabled={loginMutation.isPending}
-              >
+              <FormField control={form.control} name="username" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base">اسم المستخدم</FormLabel>
+                  <FormControl><Input placeholder="أدخل اسم المستخدم" className="h-12" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="password" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base">كلمة المرور</FormLabel>
+                  <FormControl><Input type="password" placeholder="أدخل كلمة المرور" className="h-12" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={loginMutation.isPending}>
                 {loginMutation.isPending ? 'جاري التحقق...' : 'تسجيل الدخول'}
               </Button>
             </form>

@@ -1,14 +1,93 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { subjectsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  subjectsTable,
+  teachersTable,
+  teacherSubjectsTable,
+  teacherGradeLevelsTable,
+  coursesTable,
+  studentCoursesTable,
+} from "@workspace/db";
+import { eq, inArray, sql } from "drizzle-orm";
 import { requireAdmin } from "./admin";
 
 const router: IRouter = Router();
 
+async function getTeacherGradeLevels(teacherId: number): Promise<string[]> {
+  const rows = await db
+    .select({ gradeLevel: teacherGradeLevelsTable.gradeLevel })
+    .from(teacherGradeLevelsTable)
+    .where(eq(teacherGradeLevelsTable.teacherId, teacherId));
+  return rows.map((r) => r.gradeLevel);
+}
+
 router.get("/subjects", async (_req, res): Promise<void> => {
   const subjects = await db.select().from(subjectsTable).orderBy(subjectsTable.name);
   res.json(subjects);
+});
+
+// GET /subjects/:id — subject detail with stats + teachers
+router.get("/subjects/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+
+  const [subject] = await db.select().from(subjectsTable).where(eq(subjectsTable.id, id));
+  if (!subject) {
+    res.status(404).json({ error: "Subject not found" });
+    return;
+  }
+
+  // Teachers who teach this subject
+  const teacherRows = await db
+    .select({
+      id: teachersTable.id,
+      fullName: teachersTable.fullName,
+      avatarUrl: teachersTable.avatarUrl,
+      bio: teachersTable.bio,
+      phone: teachersTable.phone,
+      username: teachersTable.username,
+      isActive: teachersTable.isActive,
+    })
+    .from(teacherSubjectsTable)
+    .innerJoin(teachersTable, eq(teacherSubjectsTable.teacherId, teachersTable.id))
+    .where(eq(teacherSubjectsTable.subjectId, id));
+
+  const teachers = await Promise.all(
+    teacherRows.map(async (t) => ({
+      ...t,
+      gradeLevels: await getTeacherGradeLevels(t.id),
+    }))
+  );
+
+  // Courses count
+  const [{ count: coursesCount }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(coursesTable)
+    .where(eq(coursesTable.subjectId, id));
+
+  // Students count (unique students in courses for this subject)
+  const subjectCourses = await db
+    .select({ id: coursesTable.id })
+    .from(coursesTable)
+    .where(eq(coursesTable.subjectId, id));
+
+  let studentsCount = 0;
+  if (subjectCourses.length > 0) {
+    const courseIds = subjectCourses.map((c) => c.id);
+    const rows = await db
+      .select({ studentId: studentCoursesTable.studentId })
+      .from(studentCoursesTable)
+      .where(inArray(studentCoursesTable.courseId, courseIds));
+    studentsCount = new Set(rows.map((r) => r.studentId)).size;
+  }
+
+  res.json({
+    ...subject,
+    teachers,
+    teachersCount: teachers.length,
+    coursesCount,
+    studentsCount,
+  });
 });
 
 router.post("/subjects", requireAdmin, async (req, res): Promise<void> => {
