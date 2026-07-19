@@ -1,29 +1,25 @@
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import colors from '@/constants/colors';
 
-// Tab bar is always #101D36 regardless of theme
-const TAB_BG = colors.navy;         // #101D36
-const TAB_ACTIVE = colors.gold;     // #D4A843 — gold
-const TAB_INACTIVE = 'rgba(255,255,255,0.45)';
+// ─── ثوابت التاب بار — ثابتة في كلا الوضعين ───────
+const TAB_BG       = colors.navy;    // #101D36 دائماً
+const TAB_ACTIVE   = colors.gold;    // #D4A843 ذهبي للعنصر النشط
+const TAB_INACTIVE = 'rgba(255,255,255,0.45)'; // أبيض شفاف للعناصر غير النشطة
 
-// iOS 26+ liquid glass tabs — defined in forward RTL reading order.
+// ─── iOS 26+ Liquid Glass ───────────────────────────
 function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
   return (
     <NativeTabs>
-      {/* Settings — visible for ALL roles */}
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
         <Label>الإعدادات</Label>
       </NativeTabs.Trigger>
-      {/* Students — teachers only */}
       {isTeacher ? (
         <NativeTabs.Trigger name="students">
           <Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
@@ -46,6 +42,7 @@ function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
   );
 }
 
+// ─── Classic Tab Layout (Android / Web / iOS < 26) ──
 function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
   return (
     <Tabs
@@ -55,32 +52,30 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : TAB_BG,
+          // لون صلب #101D36 على جميع المنصات بدون blur
+          backgroundColor: TAB_BG,
           borderTopWidth: 0,
-          elevation: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
           ...(Platform.OS === 'web' ? { height: 64 } : {}),
         },
         tabBarLabelStyle: {
           fontFamily: 'Tajawal_500Medium',
           fontSize: 11,
         },
-        // Background: solid #101D36 on Android/web; dark blur on iOS
-        tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
-            <BlurView
-              intensity={95}
-              tint="dark"
-              style={[StyleSheet.absoluteFill, { backgroundColor: `${TAB_BG}CC` }]}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BG }]} />
-          ),
+        // خلفية صلبة واحدة على كل المنصات — بدون BlurView حتى لا يظهر اللون الأزرق
+        tabBarBackground: () => (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BG }]} />
+        ),
       }}
     >
       {/*
-        RTL layout flips tab visual order: first tab in code → appears on the RIGHT.
-        Desired visual (right → left): الرئيسية | كورساتي | التواصل | طلابي | الإعدادات
-        Code order: index | courses | chat | students | settings
+        RTL: أول تاب في الكود → يظهر على اليمين
+        المطلوب (يمين → يسار): الرئيسية | كورساتي | التواصل | طلابي | الإعدادات
+        ترتيب الكود:            index | courses | chat | students | settings
       */}
       <Tabs.Screen
         name="index"
