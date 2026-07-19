@@ -1,48 +1,71 @@
 const colors = {
   light: {
+    // ── Backgrounds ──────────────────────────────────
+    background: '#FFFFFF',
+    card: '#F5F7FB',
+    // ── Text ─────────────────────────────────────────
     text: '#000000',
-    tint: '#101D36',
-    background: '#ffffff',
     foreground: '#000000',
-    card: '#f8fafc',
     cardForeground: '#000000',
+    // ── Primary (#101D36) ─────────────────────────────
+    tint: '#101D36',
     primary: '#101D36',
-    primaryForeground: '#ffffff',
-    secondary: '#f0f4f8',
-    secondaryForeground: '#101D36',
-    muted: '#e8edf5',
-    mutedForeground: '#6b7a99',
-    accent: '#1e3a6e',
-    accentForeground: '#ffffff',
-    destructive: '#ef4444',
-    destructiveForeground: '#ffffff',
-    border: '#dde3ee',
-    input: '#e8edf5',
-    gold: '#f59e0b',
-    success: '#10b981',
+    primaryForeground: '#FFFFFF',
+    // ── Secondary (#101D36) ───────────────────────────
+    secondary: '#101D36',
+    secondaryForeground: '#FFFFFF',
+    // ── Muted ────────────────────────────────────────
+    muted: '#E8EDF5',
+    mutedForeground: '#64748B',
+    // ── Accent (lighter navy) ─────────────────────────
+    accent: '#1E3A6E',
+    accentForeground: '#FFFFFF',
+    // ── Borders / Inputs ─────────────────────────────
+    border: '#DDE3EE',
+    input: '#E8EDF5',
+    // ── Gold accent ───────────────────────────────────
+    gold: '#D4A843',
+    goldForeground: '#101D36',
+    // ── Semantic ──────────────────────────────────────
+    destructive: '#EF4444',
+    destructiveForeground: '#FFFFFF',
+    success: '#10B981',
   },
   dark: {
-    text: '#ffffff',
-    tint: '#93b4f0',
+    // ── Backgrounds ──────────────────────────────────
     background: '#101D36',
-    foreground: '#ffffff',
-    card: '#162035',
-    cardForeground: '#ffffff',
-    primary: '#93b4f0',
+    card: '#0D1726',
+    // ── Text ─────────────────────────────────────────
+    text: '#FFFFFF',
+    foreground: '#FFFFFF',
+    cardForeground: '#FFFFFF',
+    // ── Primary (gold in dark for contrast) ───────────
+    tint: '#D4A843',
+    primary: '#D4A843',
     primaryForeground: '#101D36',
-    secondary: '#1a2a45',
-    secondaryForeground: '#ffffff',
-    muted: '#1e3050',
-    mutedForeground: '#8fa0c0',
-    accent: '#2d4f8a',
-    accentForeground: '#ffffff',
-    destructive: '#ef4444',
-    destructiveForeground: '#ffffff',
-    border: '#243352',
-    input: '#1e3050',
-    gold: '#fbbf24',
-    success: '#34d399',
+    // ── Secondary (near-black) ────────────────────────
+    secondary: '#0A0E1A',
+    secondaryForeground: '#FFFFFF',
+    // ── Muted ────────────────────────────────────────
+    muted: '#1A2A45',
+    mutedForeground: '#8FA0C0',
+    // ── Accent ───────────────────────────────────────
+    accent: '#2D4F8A',
+    accentForeground: '#FFFFFF',
+    // ── Borders / Inputs ─────────────────────────────
+    border: '#1E3050',
+    input: '#1A2A45',
+    // ── Gold accent ───────────────────────────────────
+    gold: '#D4A843',
+    goldForeground: '#101D36',
+    // ── Semantic ──────────────────────────────────────
+    destructive: '#EF4444',
+    destructiveForeground: '#FFFFFF',
+    success: '#34D399',
   },
+  // Shared
+  navy: '#101D36',
+  gold: '#D4A843',
   radius: 12,
 };
 

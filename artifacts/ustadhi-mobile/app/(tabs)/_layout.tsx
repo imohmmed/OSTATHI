@@ -1,6 +1,5 @@
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,9 +7,14 @@ import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import colors from '@/constants/colors';
+
+// Tab bar is always #101D36 regardless of theme
+const TAB_BG = colors.navy;         // #101D36
+const TAB_ACTIVE = colors.gold;     // #D4A843 — gold
+const TAB_INACTIVE = 'rgba(255,255,255,0.45)';
 
 // iOS 26+ liquid glass tabs — defined in forward RTL reading order.
-// iOS system handles RTL tab placement natively.
 function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
   return (
     <NativeTabs>
@@ -43,22 +47,16 @@ function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
 }
 
 function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
-  const colors = useColors();
-  const { effectiveTheme } = useApp();
-  const isDark = effectiveTheme === 'dark';
-  const isIOS = Platform.OS === 'ios';
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: TAB_ACTIVE,
+        tabBarInactiveTintColor: TAB_INACTIVE,
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : colors.background,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
+          backgroundColor: Platform.OS === 'ios' ? 'transparent' : TAB_BG,
+          borderTopWidth: 0,
           elevation: 0,
           ...(Platform.OS === 'web' ? { height: 64 } : {}),
         },
@@ -66,18 +64,23 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
           fontFamily: 'Tajawal_500Medium',
           fontSize: 11,
         },
+        // Background: solid #101D36 on Android/web; dark blur on iOS
         tabBarBackground: () =>
-          isIOS ? (
-            <BlurView intensity={90} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+          Platform.OS === 'ios' ? (
+            <BlurView
+              intensity={95}
+              tint="dark"
+              style={[StyleSheet.absoluteFill, { backgroundColor: `${TAB_BG}CC` }]}
+            />
           ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BG }]} />
           ),
       }}
     >
       {/*
         RTL layout flips tab visual order: first tab in code → appears on the RIGHT.
-        Desired visual (right → left): الرئيسية | كورساتي | التواصل | طلابي/الإعدادات
-        So code order must be:         index | courses | chat | students/settings
+        Desired visual (right → left): الرئيسية | كورساتي | التواصل | طلابي | الإعدادات
+        Code order: index | courses | chat | students | settings
       */}
       <Tabs.Screen
         name="index"
