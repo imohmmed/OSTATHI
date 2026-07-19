@@ -403,14 +403,14 @@ export default function SettingsScreen() {
   );
 }
 
-const R = 16; // global corner radius
+const R = 22; // global corner radius
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
 
   // Profile cards
-  profileCard: { flexDirection: 'row-reverse', alignItems: 'center', marginHorizontal: 16, borderRadius: R, padding: 16, gap: 14 },
+  profileCard: { flexDirection: 'row-reverse', alignItems: 'center', marginHorizontal: 16, borderRadius: R, padding: 18, gap: 14 },
   profileAvatar: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
 
   // Teacher card
@@ -431,14 +431,14 @@ const styles = StyleSheet.create({
   groupRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13 },
   rowRight: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   rowLeft: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  iconBox: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
   // Section labels
   groupLabel: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 8 },
 
   // Font size
   fontSizeRow: { flexDirection: 'row-reverse', paddingHorizontal: 10, paddingVertical: 10, gap: 8 },
-  fontBtn: { paddingVertical: 8, borderRadius: 10, alignItems: 'center' },
+  fontBtn: { paddingVertical: 8, borderRadius: 14, alignItems: 'center' },
 
   appNameWrap: { alignItems: 'center', marginTop: 28, marginBottom: 4 },
 });
