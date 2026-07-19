@@ -108,7 +108,7 @@ export function CourseCard({ title, teacherName, subjectName, lessonsCount, prog
 const styles = StyleSheet.create({
   hCard: {
     width: 175,
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     overflow: 'hidden',
     marginLeft: 12,
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   hTeacher: { fontSize: 11, paddingHorizontal: 10 },
   hLessons: { fontSize: 11, paddingHorizontal: 10, paddingBottom: 10 },
   vCard: {
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     overflow: 'hidden',
     marginHorizontal: 16,

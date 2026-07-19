@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   social: { alignItems: 'center', gap: 12, marginTop: 30, paddingBottom: 10 },
   socialTitle: {},
   socialRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center' },
-  socialBtn: { alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16 },
+  socialBtn: { alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999 },
   socialLabel: {},
   // Teacher-specific
   teacherHero: { paddingHorizontal: 20, paddingBottom: 28, alignItems: 'center', gap: 8 },
@@ -425,8 +425,8 @@ const styles = StyleSheet.create({
   teacherStatsRow: { flexDirection: 'row-reverse', gap: 40, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', width: '100%', justifyContent: 'center' },
   teacherStatItem: { alignItems: 'center', gap: 2 },
   quickActions: { flexDirection: 'row-reverse', justifyContent: 'center', gap: 12, marginTop: 18, paddingHorizontal: 16 },
-  quickActionBtn: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
-  emptyAction: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, paddingVertical: 16, borderRadius: 14, borderWidth: 1 },
-  studentRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
+  quickActionBtn: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderRadius: 28, borderWidth: 1 },
+  emptyAction: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, paddingVertical: 16, borderRadius: 28, borderWidth: 1 },
+  studentRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, borderRadius: 26, borderWidth: 1 },
   studentAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });

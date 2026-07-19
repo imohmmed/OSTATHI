@@ -46,7 +46,7 @@ export function ReviewCard({ studentName, comment, rating, createdAt }: ReviewCa
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 14,
     marginRight: 12,
