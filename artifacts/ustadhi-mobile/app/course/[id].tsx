@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,223 +18,12 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LessonStepItem } from '@/components/LessonStepItem';
 import { SkeletonBox } from '@/components/SkeletonLoader';
+import { AddLessonModal } from '@/components/AddLessonModal';
 import {
   useGetCourse,
-  useCreateLesson,
   useDeleteLesson,
   getGetCourseQueryKey,
 } from '@workspace/api-client-react';
-
-// ─── Lesson types ─────────────────────────────
-const LESSON_TYPES = [
-  { value: 'video',      label: 'فيديو',       icon: 'play-circle-outline'   as const },
-  { value: 'pdf',        label: 'PDF',          icon: 'document-outline'      as const },
-  { value: 'text',       label: 'نص',           icon: 'document-text-outline' as const },
-  { value: 'link',       label: 'رابط',         icon: 'link-outline'          as const },
-  { value: 'livestream', label: 'بث مباشر',     icon: 'radio-outline'         as const },
-  { value: 'assignment', label: 'واجب',         icon: 'create-outline'        as const },
-];
-
-function typeLabel(type: string) {
-  return LESSON_TYPES.find(t => t.value === type)?.label ?? type;
-}
-
-function typeIcon(type: string) {
-  return LESSON_TYPES.find(t => t.value === type)?.icon ?? 'book-outline';
-}
-
-// ─── Add Lesson Modal ─────────────────────────
-interface AddLessonModalProps {
-  visible: boolean;
-  courseId: number;
-  teacherId: number;
-  lessonsCount: number;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onClose, onSuccess }: AddLessonModalProps) {
-  const colors = useColors();
-  const { fontScale } = useApp();
-  const fs = fontScale;
-  const insets = useSafeAreaInsets();
-
-  const [title, setTitle] = useState('');
-  const [selectedType, setSelectedType] = useState('video');
-  const [contentUrl, setContentUrl] = useState('');
-  const [contentText, setContentText] = useState('');
-  const [durationMin, setDurationMin] = useState('');
-
-  const createLesson = useCreateLesson();
-  const needsUrl = ['video', 'pdf', 'link', 'livestream'].includes(selectedType);
-  const needsText = selectedType === 'text' || selectedType === 'assignment';
-
-  const handleSubmit = () => {
-    if (!title.trim()) { Alert.alert('خطأ', 'عنوان المحاضرة مطلوب'); return; }
-    if (needsUrl && !contentUrl.trim()) { Alert.alert('خطأ', 'الرابط مطلوب'); return; }
-
-    createLesson.mutate({
-      courseId,
-      data: {
-        title: title.trim(),
-        type: selectedType as any,
-        contentUrl: needsUrl ? contentUrl.trim() : undefined,
-        contentText: needsText ? contentText.trim() : undefined,
-        duration: durationMin ? Math.round(parseFloat(durationMin) * 60) : undefined,
-        order: lessonsCount + 1,
-        isPublished: true,
-        // pass teacherId for ownership check
-        ...(teacherId ? { teacherId } : {}),
-      } as any,
-    }, {
-      onSuccess: () => {
-        setTitle(''); setContentUrl(''); setContentText(''); setDurationMin('');
-        setSelectedType('video');
-        onSuccess();
-        onClose();
-      },
-      onError: () => Alert.alert('خطأ', 'فشل إضافة المحاضرة، حاول مرة أخرى'),
-    });
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-          {/* Modal Header */}
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-              <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>إلغاء</Text>
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>
-              إضافة محاضرة جديدة
-            </Text>
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={createLesson.isPending}
-              style={[styles.modalSaveBtn, { backgroundColor: colors.primary, opacity: createLesson.isPending ? 0.6 : 1 }]}
-            >
-              <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                {createLesson.isPending ? '...' : 'إضافة'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 40 + insets.bottom }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Title */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                عنوان المحاضرة *
-              </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs }]}
-                placeholder="مثال: مقدمة التكامل"
-                placeholderTextColor={colors.mutedForeground}
-                value={title}
-                onChangeText={setTitle}
-                textAlign="right"
-              />
-            </View>
-
-            {/* Type selector */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                نوع المحاضرة
-              </Text>
-              <View style={styles.typeGrid}>
-                {LESSON_TYPES.map(t => {
-                  const isSelected = selectedType === t.value;
-                  return (
-                    <TouchableOpacity
-                      key={t.value}
-                      onPress={() => setSelectedType(t.value)}
-                      style={[
-                        styles.typeChip,
-                        {
-                          backgroundColor: isSelected ? colors.primary : colors.card,
-                          borderColor: isSelected ? colors.primary : colors.border,
-                        },
-                      ]}
-                    >
-                      <Ionicons name={t.icon} size={18} color={isSelected ? '#fff' : colors.mutedForeground} />
-                      <Text style={[{ color: isSelected ? '#fff' : colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>
-                        {t.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Content URL */}
-            {needsUrl && (
-              <View style={styles.fieldGroup}>
-                <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                  {selectedType === 'video' ? 'رابط الفيديو (YouTube أو مباشر)' :
-                   selectedType === 'pdf' ? 'رابط ملف PDF' :
-                   selectedType === 'livestream' ? 'رابط البث المباشر' : 'الرابط'} *
-                </Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
-                  placeholder="https://..."
-                  placeholderTextColor={colors.mutedForeground}
-                  value={contentUrl}
-                  onChangeText={setContentUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  textAlign="left"
-                />
-              </View>
-            )}
-
-            {/* Content Text */}
-            {needsText && (
-              <View style={styles.fieldGroup}>
-                <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                  {selectedType === 'assignment' ? 'تعليمات الواجب' : 'محتوى الدرس النصي'}
-                </Text>
-                <TextInput
-                  style={[styles.textArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
-                  placeholder="اكتب المحتوى هنا..."
-                  placeholderTextColor={colors.mutedForeground}
-                  value={contentText}
-                  onChangeText={setContentText}
-                  multiline
-                  numberOfLines={6}
-                  textAlignVertical="top"
-                  textAlign="right"
-                />
-              </View>
-            )}
-
-            {/* Duration (video/livestream only) */}
-            {(selectedType === 'video' || selectedType === 'livestream') && (
-              <View style={styles.fieldGroup}>
-                <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                  مدة الفيديو (بالدقائق)
-                </Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, width: 120 }]}
-                  placeholder="45"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={durationMin}
-                  onChangeText={setDurationMin}
-                  keyboardType="numeric"
-                  textAlign="center"
-                />
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
 
 // ─── Course Detail Screen ─────────────────────
 export default function CourseDetailScreen() {

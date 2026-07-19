@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { I18nManager } from 'react-native';
+import { I18nManager, View, Text, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/tajawal';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as ScreenCapture from 'expo-screen-capture';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
@@ -93,6 +94,13 @@ function RootLayoutNav() {
   );
 }
 
+const drmStyles = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#101D36', padding: 32, gap: 16 },
+  icon: { fontSize: 56 },
+  title: { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  msg: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', lineHeight: 22 },
+});
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Tajawal_400Regular,
@@ -101,6 +109,12 @@ export default function RootLayout() {
     Tajawal_800ExtraBold,
     Tajawal_900Black,
   });
+
+  // ── DRM: prevent screenshots & screen recording ──────────────────
+  useEffect(() => {
+    ScreenCapture.preventScreenCaptureAsync();
+    return () => { ScreenCapture.allowScreenCaptureAsync(); };
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
