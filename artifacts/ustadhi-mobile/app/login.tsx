@@ -78,7 +78,7 @@ export default function LoginScreen() {
       >
         {/* Back */}
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-forward" size={22} color="rgba(255,255,255,0.8)" />
+          <Ionicons name="close" size={26} color="rgba(255,255,255,0.8)" />
         </TouchableOpacity>
 
         {/* Logo area */}
