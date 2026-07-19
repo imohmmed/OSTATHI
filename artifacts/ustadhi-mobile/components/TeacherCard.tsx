@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   hCard: {
     width: 130,
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     alignItems: 'center',
     marginLeft: 12,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     marginHorizontal: 16,
     marginBottom: 10,

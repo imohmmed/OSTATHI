@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     width: '100%',
-    borderRadius: 8,
+    borderRadius: 24,
     overflow: 'hidden',
     padding: 16,
   },

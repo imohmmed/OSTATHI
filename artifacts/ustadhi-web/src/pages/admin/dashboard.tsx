@@ -69,7 +69,7 @@ export default function AdminDashboard() {
             <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bg}`}>
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${stat.bg}`}>
                     <stat.icon className={`w-5 h-5 ${stat.color}`} />
                   </div>
                   <TrendingUp className="w-4 h-4 text-muted-foreground/40" />
@@ -95,7 +95,7 @@ export default function AdminDashboard() {
 
         {subjectsLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => <div key={i} className="h-36 rounded-2xl bg-muted animate-pulse" />)}
+            {[1,2,3,4].map(i => <div key={i} className="h-36 rounded-3xl bg-muted animate-pulse" />)}
           </div>
         ) : subjects?.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">لا توجد مواد دراسية بعد</div>
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {subjects?.map((subject, idx) => (
               <Link key={subject.id} href={`/admin/subjects/${subject.id}`}>
-                <div className="group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
+                <div className="group cursor-pointer rounded-3xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
                   <div className={`bg-gradient-to-br ${subjectColors[idx % subjectColors.length]} p-5 text-white`}>
                     <BookOpen className="w-8 h-8 mb-3 opacity-80" />
                     <h3 className="font-bold text-lg leading-tight">{subject.name}</h3>
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
 
         {teachersLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {[1,2,3,4].map(i => <div key={i} className="h-56 rounded-2xl bg-muted animate-pulse" />)}
+            {[1,2,3,4].map(i => <div key={i} className="h-56 rounded-3xl bg-muted animate-pulse" />)}
           </div>
         ) : teachers?.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">لا يوجد أساتذة بعد</div>
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                 .filter(Boolean);
               return (
                 <Link key={teacher.id} href={`/admin/teachers/${teacher.id}`}>
-                  <div className="group bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <div className="group bg-card border border-border rounded-3xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all">
                     {/* Wide banner image */}
                     <div className="relative aspect-[16/7] bg-gradient-to-br from-[#101D36] to-[#2d5299] overflow-hidden">
                       {teacher.avatarUrl ? (
@@ -203,7 +203,7 @@ export default function AdminDashboard() {
 
         {coursesLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />)}
+            {[1,2,3,4].map(i => <div key={i} className="h-48 rounded-3xl bg-muted animate-pulse" />)}
           </div>
         ) : courses?.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">لا توجد دورات بعد</div>
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {courses?.slice(0, 8).map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`}>
-                <div className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="bg-card border border-border rounded-3xl overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all">
                   <div className="aspect-video bg-muted relative flex items-center justify-center overflow-hidden">
                     {course.thumbnailUrl ? (
                       <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />

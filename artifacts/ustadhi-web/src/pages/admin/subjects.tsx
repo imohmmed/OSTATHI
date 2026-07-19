@@ -157,12 +157,12 @@ export default function SubjectsPage() {
           <div className="col-span-full text-center py-12 text-muted-foreground">لا يوجد مواد دراسية</div>
         ) : (
           filteredSubjects?.map((subject) => (
-            <div key={subject.id} className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow relative group">
+            <div key={subject.id} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow relative group">
               <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                 <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => handleEdit(subject)}><Edit className="w-4 h-4 text-blue-500" /></Button>
                 <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => handleDelete(subject.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
               </div>
-              <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mb-4">
                 <BookOpen className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold">{subject.name}</h3>

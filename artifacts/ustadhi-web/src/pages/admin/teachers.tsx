@@ -167,7 +167,7 @@ export default function TeachersPage() {
                   <FormField control={form.control} name="subjectIds" render={() => (
                     <FormItem>
                       <FormLabel>المواد الدراسية</FormLabel>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-4 rounded-md">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-4 rounded-xl">
                         {subjects?.map((sub) => (
                           <FormField key={sub.id} control={form.control} name="subjectIds" render={({ field }) => {
                             return (
@@ -196,7 +196,7 @@ export default function TeachersPage() {
                   <FormField control={form.control} name="gradeLevels" render={() => (
                     <FormItem>
                       <FormLabel>الصفوف الدراسية التي يدرّسها</FormLabel>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-4 rounded-md max-h-52 overflow-y-auto">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-4 rounded-xl max-h-52 overflow-y-auto">
                         {GRADE_LEVELS.map((grade) => (
                           <FormField key={grade} control={form.control} name="gradeLevels" render={({ field }) => (
                             <FormItem key={grade} className="flex flex-row items-start space-x-3 space-x-reverse space-y-0">
@@ -229,7 +229,7 @@ export default function TeachersPage() {
         </div>
       </div>
 
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

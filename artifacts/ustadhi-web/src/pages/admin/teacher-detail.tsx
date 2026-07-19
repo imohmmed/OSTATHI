@@ -103,7 +103,7 @@ export default function TeacherDetailPage() {
 
   if (isLoading) return (
     <div className="space-y-4 animate-pulse">
-      <div className="h-52 rounded-2xl bg-muted" />
+      <div className="h-52 rounded-3xl bg-muted" />
       <div className="h-8 w-48 rounded bg-muted" />
       <div className="h-4 w-64 rounded bg-muted" />
     </div>
@@ -128,7 +128,7 @@ export default function TeacherDetailPage() {
       </Link>
 
       {/* ── Hero Banner (صورة عرضية) ── */}
-      <div className="rounded-2xl overflow-hidden border border-border shadow-sm">
+      <div className="rounded-3xl overflow-hidden border border-border shadow-sm">
         <div className="relative w-full aspect-[16/6] bg-gradient-to-br from-[#101D36] to-[#2d5299] overflow-hidden">
           {teacher.avatarUrl ? (
             <img src={teacher.avatarUrl} alt={teacher.fullName} className="w-full h-full object-cover" />
@@ -263,7 +263,7 @@ export default function TeacherDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {courses.map((course) => (
                 <Link key={course.id} href={`/admin/courses/${course.id}`}>
-                  <div className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-md cursor-pointer transition-all">
+                  <div className="bg-card border border-border rounded-3xl overflow-hidden hover:shadow-md cursor-pointer transition-all">
                     <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
                       {course.thumbnailUrl
                         ? <img src={course.thumbnailUrl} className="w-full h-full object-cover" />
@@ -293,7 +293,7 @@ export default function TeacherDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {students.map((student: any) => (
                 <Link key={student.id} href={`/admin/students/${student.id}`}>
-                  <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:shadow-sm cursor-pointer transition-all">
+                  <div className="bg-card border border-border rounded-3xl p-4 flex items-center gap-3 hover:shadow-sm cursor-pointer transition-all">
                     <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
                       {student.fullName?.[0]}
                     </div>
@@ -345,7 +345,7 @@ export default function TeacherDetailPage() {
             {/* Subjects */}
             <div className="space-y-2">
               <label className="text-sm font-medium">المواد الدراسية</label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-md p-3 max-h-32 overflow-y-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-xl p-3 max-h-32 overflow-y-auto">
                 {subjects?.map(s => (
                   <div key={s.id} className="flex items-center gap-2 cursor-pointer" onClick={() => toggleSubject(s.id)}>
                     <Checkbox checked={(form.subjectIds ?? []).includes(s.id)} onCheckedChange={() => toggleSubject(s.id)} />
@@ -357,7 +357,7 @@ export default function TeacherDetailPage() {
             {/* Grade levels */}
             <div className="space-y-2">
               <label className="text-sm font-medium">الصفوف الدراسية</label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-md p-3 max-h-40 overflow-y-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-xl p-3 max-h-40 overflow-y-auto">
                 {GRADE_LEVELS.map(g => (
                   <div key={g} className="flex items-center gap-2 cursor-pointer" onClick={() => toggleGrade(g)}>
                     <Checkbox checked={(form.gradeLevels ?? []).includes(g)} onCheckedChange={() => toggleGrade(g)} />

@@ -60,7 +60,7 @@ export function SkeletonRow() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: 24,
     padding: 12,
     borderWidth: 1,
     width: 180,
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
     marginHorizontal: 16,
     marginBottom: 10,

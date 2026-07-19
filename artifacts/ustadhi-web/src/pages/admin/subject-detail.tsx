@@ -61,9 +61,9 @@ export default function SubjectDetailPage() {
   if (isLoading) return (
     <div className="space-y-4 animate-pulse">
       <div className="h-8 w-32 rounded bg-muted" />
-      <div className="h-28 rounded-2xl bg-muted" />
+      <div className="h-28 rounded-3xl bg-muted" />
       <div className="grid grid-cols-3 gap-4">
-        {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-muted" />)}
+        {[1,2,3].map(i => <div key={i} className="h-24 rounded-3xl bg-muted" />)}
       </div>
     </div>
   );
@@ -92,7 +92,7 @@ export default function SubjectDetailPage() {
       </Link>
 
       {/* ── Subject Header ── */}
-      <div className={`rounded-2xl bg-gradient-to-br ${gradient} text-white p-6 flex items-start justify-between`}>
+      <div className={`rounded-3xl bg-gradient-to-br ${gradient} text-white p-6 flex items-start justify-between`}>
         <div>
           <BookOpen className="w-10 h-10 mb-3 opacity-70" />
           <h1 className="text-3xl font-bold">{subject.name}</h1>
@@ -145,7 +145,7 @@ export default function SubjectDetailPage() {
           </Button>
         </div>
         {subject.teachers?.length === 0 ? (
-          <div className="text-center py-10 border-2 border-dashed border-border rounded-2xl text-muted-foreground">
+          <div className="text-center py-10 border-2 border-dashed border-border rounded-3xl text-muted-foreground">
             <GraduationCap className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p>لا يوجد أساتذة لهذه المادة بعد</p>
             <Button className="mt-4 gap-2" onClick={() => setAddTeacherOpen(true)}>
@@ -156,7 +156,7 @@ export default function SubjectDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {subject.teachers?.map((teacher: any) => (
               <Link key={teacher.id} href={`/admin/teachers/${teacher.id}`}>
-                <div className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all">
+                <div className="bg-card border border-border rounded-3xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all">
                   {/* Wide banner */}
                   <div className="relative aspect-[16/7] bg-gradient-to-br from-[#101D36] to-[#2d5299] overflow-hidden">
                     {teacher.avatarUrl ? (
@@ -200,7 +200,7 @@ export default function SubjectDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {courses.map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`}>
-                <div className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:shadow-md transition-all">
+                <div className="bg-card border border-border rounded-3xl overflow-hidden cursor-pointer hover:shadow-md transition-all">
                   <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
                     {course.thumbnailUrl
                       ? <img src={course.thumbnailUrl} className="w-full h-full object-cover" />
@@ -273,7 +273,7 @@ export default function SubjectDetailPage() {
                 rows={2}
               />
             </div>
-            <div className="text-xs text-muted-foreground bg-muted rounded-lg p-3">
+            <div className="text-xs text-muted-foreground bg-muted rounded-2xl p-3">
               سيتمكن الأستاذ من تسجيل الدخول عبر التطبيق باستخدام <strong>اسم المستخدم</strong> و<strong>الرمز</strong> المحددَين أعلاه، وستُضاف له مادة <strong>{subject.name}</strong> تلقائياً.
             </div>
           </div>

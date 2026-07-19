@@ -159,7 +159,7 @@ export default function CoursesPage() {
                     <FormItem><FormLabel>رابط صورة الغلاف</FormLabel><FormControl><Input {...field}/></FormControl><FormMessage/></FormItem>
                   )} />
                   <FormField control={form.control} name="isPublished" render={({field}) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-xl border p-4">
                       <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>نشر الدورة</FormLabel>
@@ -168,7 +168,7 @@ export default function CoursesPage() {
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="isTrial" render={({field}) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4">
+                    <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4">
                       <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel className="text-amber-700 dark:text-amber-400">محاضرة تجريبية</FormLabel>
@@ -194,7 +194,7 @@ export default function CoursesPage() {
         ) : (
           filteredCourses?.map((course) => (
             <Link key={course.id} href={`/admin/courses/${course.id}`}>
-              <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-1 group flex flex-col h-full">
+              <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-1 group flex flex-col h-full">
                 <div className="aspect-video bg-muted relative overflow-hidden flex items-center justify-center">
                   {course.thumbnailUrl ? (
                     <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />

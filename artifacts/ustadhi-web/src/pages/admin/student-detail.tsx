@@ -89,9 +89,9 @@ export default function StudentDetailPage() {
   if (isLoading) return (
     <div className="space-y-4 animate-pulse">
       <div className="h-8 w-32 rounded bg-muted" />
-      <div className="h-44 rounded-2xl bg-muted" />
+      <div className="h-44 rounded-3xl bg-muted" />
       <div className="grid grid-cols-3 gap-4">
-        {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-muted" />)}
+        {[1,2,3].map(i => <div key={i} className="h-24 rounded-3xl bg-muted" />)}
       </div>
     </div>
   );
@@ -262,8 +262,8 @@ export default function StudentDetailPage() {
             <div className="space-y-3">
               {courses.map((course: any) => (
                 <Link key={course.id} href={`/admin/courses/${course.id}`}>
-                  <div className="flex items-center gap-4 p-3 rounded-xl border border-border hover:bg-muted/40 cursor-pointer transition-colors">
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="flex items-center gap-4 p-3 rounded-3xl border border-border hover:bg-muted/40 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                       {course.thumbnailUrl
                         ? <img src={course.thumbnailUrl} className="w-full h-full object-cover" />
                         : <Video className="w-5 h-5 text-muted-foreground/30" />}

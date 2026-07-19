@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 18,
   },
   lessonRow: {
     flexDirection: 'row-reverse',
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginHorizontal: 16,
     marginBottom: 8,
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 14,
   },
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 999,
     marginTop: 4,
   },
   fab: {

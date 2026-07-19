@@ -121,9 +121,9 @@ export default function NotificationsPage() {
           
           <div className="space-y-3">
             {isLoading ? (
-              <div className="text-center py-12 text-muted-foreground bg-card rounded-xl border border-border">جاري التحميل...</div>
+              <div className="text-center py-12 text-muted-foreground bg-card rounded-3xl border border-border">جاري التحميل...</div>
             ) : notifications?.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground bg-card rounded-xl border border-border">لا يوجد إشعارات سابقة</div>
+              <div className="text-center py-12 text-muted-foreground bg-card rounded-3xl border border-border">لا يوجد إشعارات سابقة</div>
             ) : (
               notifications?.map((notification) => {
                 const audience = audienceMap[notification.targetAudience as keyof typeof audienceMap] || audienceMap.all;
@@ -142,7 +142,7 @@ export default function NotificationsPage() {
                         </div>
                         <p className="text-muted-foreground mt-1">{notification.body}</p>
                         <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                          <span className="bg-muted px-2 py-1 rounded-md">إلى: {audience.label}</span>
+                          <span className="bg-muted px-2 py-1 rounded-xl">إلى: {audience.label}</span>
                           <span dir="ltr">{new Date(notification.createdAt).toLocaleString('ar-SA')}</span>
                         </div>
                       </div>

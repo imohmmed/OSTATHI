@@ -143,9 +143,9 @@ export default function CourseDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card rounded-xl p-6 shadow-sm border border-border flex flex-col md:flex-row gap-6">
+      <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex flex-col md:flex-row gap-6">
         {course.thumbnailUrl && (
-          <div className="w-full md:w-64 aspect-video rounded-lg overflow-hidden shrink-0">
+          <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden shrink-0">
             <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
           </div>
         )}
@@ -218,7 +218,7 @@ export default function CourseDetailPage() {
                 ) : null}
 
                 <FormField control={form.control} name="isPublished" render={({field}) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-md border p-4 mt-4">
+                  <FormItem className="flex flex-row items-start space-x-3 space-x-reverse space-y-0 rounded-xl border p-4 mt-4">
                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>نشر الدرس</FormLabel>
@@ -256,7 +256,7 @@ export default function CourseDetailPage() {
                     </Button>
                   </div>
                   
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                  <div className={`w-12 h-12 rounded-3xl flex items-center justify-center shrink-0 ${
                     lesson.type === 'video' ? 'bg-blue-100 text-blue-600' :
                     lesson.type === 'quiz' ? 'bg-purple-100 text-purple-600' :
                     lesson.type === 'pdf' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'

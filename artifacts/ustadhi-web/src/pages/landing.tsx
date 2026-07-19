@@ -44,7 +44,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-primary rounded-3xl flex items-center justify-center">
                 <GraduationCap className="text-white w-6 h-6" />
               </div>
               <span className="text-2xl font-black text-primary dark:text-white tracking-tight">استاذي</span>
@@ -116,21 +116,21 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <Card className="border-none shadow-lg bg-card/50 backdrop-blur-sm">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6"><MonitorPlay className="w-8 h-8" /></div>
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6"><MonitorPlay className="w-8 h-8" /></div>
                 <h3 className="text-xl font-bold mb-3">دروس تفاعلية وبث مباشر</h3>
                 <p className="text-muted-foreground">تفاعل مع أستاذك في الوقت الفعلي أو شاهد الدروس المسجلة بدقة عالية في أي وقت.</p>
               </CardContent>
             </Card>
             <Card className="border-none shadow-lg bg-card/50 backdrop-blur-sm transform md:-translate-y-4">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-8 h-8" /></div>
+                <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-8 h-8" /></div>
                 <h3 className="text-xl font-bold mb-3">امتحانات مستمرة</h3>
                 <p className="text-muted-foreground">اختبر مستواك باستمرار من خلال بنك أسئلة شامل وامتحانات الكترونية مطابقة للوزاري.</p>
               </CardContent>
             </Card>
             <Card className="border-none shadow-lg bg-card/50 backdrop-blur-sm">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6"><Users className="w-8 h-8" /></div>
+                <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6"><Users className="w-8 h-8" /></div>
                 <h3 className="text-xl font-bold mb-3">متابعة فردية</h3>
                 <p className="text-muted-foreground">فريق من المساعدين التربويين لمتابعة تطور كل طالب والإجابة على استفساراته يومياً.</p>
               </CardContent>
@@ -227,7 +227,7 @@ export default function LandingPage() {
                   <p className="text-sm text-muted-foreground mb-6 flex items-center gap-2">
                     <Award className="w-4 h-4" /> الأستاذ: <span className="font-bold text-foreground">{course?.teacherName || 'اسم الأستاذ'}</span>
                   </p>
-                  <Button className="w-full font-bold h-12 rounded-xl">تفاصيل الدورة</Button>
+                  <Button className="w-full font-bold h-12 rounded-3xl">تفاصيل الدورة</Button>
                 </CardContent>
               </Card>
             ))}
@@ -275,7 +275,7 @@ export default function LandingPage() {
       {/* CTA App */}
       <section className="py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-primary rounded-3xl p-10 md:p-16 text-center text-white relative overflow-hidden shadow-2xl">
+          <div className="bg-primary rounded-full p-10 md:p-16 text-center text-white relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
             
@@ -284,10 +284,10 @@ export default function LandingPage() {
               حمّل تطبيق استاذي الآن على هاتفك الذكي واستمتع بتجربة تعليمية فريدة، تحميل الفيديوهات لمشاهدتها بدون إنترنت، واستقبال إشعارات البث المباشر.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4 relative z-10">
-              <Button size="lg" className="h-14 px-8 text-lg font-bold bg-black hover:bg-gray-900 text-white rounded-xl">
+              <Button size="lg" className="h-14 px-8 text-lg font-bold bg-black hover:bg-gray-900 text-white rounded-3xl">
                 App Store
               </Button>
-              <Button size="lg" className="h-14 px-8 text-lg font-bold bg-white hover:bg-gray-100 text-black rounded-xl">
+              <Button size="lg" className="h-14 px-8 text-lg font-bold bg-white hover:bg-gray-100 text-black rounded-3xl">
                 Google Play
               </Button>
             </div>
@@ -301,7 +301,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-6">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary rounded-3xl flex items-center justify-center">
                   <GraduationCap className="text-white w-6 h-6" />
                 </div>
                 <span className="text-2xl font-black text-primary tracking-tight">استاذي</span>
