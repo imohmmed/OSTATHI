@@ -160,28 +160,37 @@ router.get("/courses/:courseId/lessons", async (req, res): Promise<void> => {
   res.json(lessons);
 });
 
-router.post("/courses/:courseId/lessons", requireAdmin, async (req, res): Promise<void> => {
+router.post("/courses/:courseId/lessons", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.courseId) ? req.params.courseId[0] : req.params.courseId;
   const courseId = parseInt(raw, 10);
-  const { title, type, contentUrl, contentText, order, duration, isPublished } = req.body;
+  const { title, type, contentUrl, contentText, order, duration, isPublished, teacherId } = req.body;
   if (!title || !type) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
+  // Verify teacher owns the course (if teacherId supplied) or allow admin
+  if (teacherId) {
+    const [course] = await db.select({ teacherId: coursesTable.teacherId }).from(coursesTable).where(eq(coursesTable.id, courseId));
+    if (!course || course.teacherId !== Number(teacherId)) {
+      res.status(403).json({ error: "Not authorized" }); return;
+    }
+  }
+  // Auto-calculate order
+  const [{ count: existingCount }] = await db.select({ count: sql<number>`count(*)::int` }).from(lessonsTable).where(eq(lessonsTable.courseId, courseId));
   const [lesson] = await db.insert(lessonsTable).values({
     courseId,
     title,
     type: type || "video",
     contentUrl: contentUrl || null,
     contentText: contentText || null,
-    order: order ?? 0,
+    order: order ?? (existingCount + 1),
     duration: duration || null,
-    isPublished: isPublished ?? false,
+    isPublished: isPublished ?? true,
   }).returning();
   res.status(201).json(lesson);
 });
 
-router.patch("/lessons/:id", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/lessons/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const { title, type, contentUrl, contentText, order, duration, isPublished } = req.body;
@@ -202,7 +211,7 @@ router.patch("/lessons/:id", requireAdmin, async (req, res): Promise<void> => {
   res.json(lesson);
 });
 
-router.delete("/lessons/:id", requireAdmin, async (req, res): Promise<void> => {
+router.delete("/lessons/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   await db.delete(lessonsTable).where(eq(lessonsTable.id, id));

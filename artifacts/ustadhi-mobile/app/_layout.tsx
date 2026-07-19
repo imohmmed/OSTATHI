@@ -76,6 +76,9 @@ function RootLayoutNav() {
           title: 'تفاصيل الدورة',
           headerBackTitle: 'رجوع',
           headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#101D36' },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { color: '#ffffff', fontFamily: 'Tajawal_700Bold' },
         }}
       />
       <Stack.Screen
