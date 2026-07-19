@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 40 },
   bubbleMe: {
     maxWidth: '82%',
-    borderRadius: 18,
+    borderRadius: 24,
     borderBottomRightRadius: 4,
     padding: 12,
     marginBottom: 4,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   },
   bubbleThem: {
     maxWidth: '82%',
-    borderRadius: 18,
+    borderRadius: 24,
     borderBottomLeftRadius: 4,
     padding: 12,
     borderWidth: 1,
@@ -347,13 +347,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 10,
+    borderRadius: 18,
     marginTop: 2,
   },
   attachImg: {
     width: 180,
     height: 140,
-    borderRadius: 10,
+    borderRadius: 18,
   },
   fileChip: {
     flexDirection: 'row-reverse',
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   pendingBar: {
     flexDirection: 'row-reverse',
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
   },
-  pendingThumb: { width: 48, height: 48, borderRadius: 8 },
+  pendingThumb: { width: 48, height: 48, borderRadius: 14 },
   inputBar: {
     flexDirection: 'row-reverse',
     alignItems: 'flex-end',
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    borderRadius: 22,
+    borderRadius: 28,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   sendBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
