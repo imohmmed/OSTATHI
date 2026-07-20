@@ -102,7 +102,13 @@ function groupByGrade(teachers: Teacher[]) {
       map.get(g)!.push(t);
     });
   });
+  // First: grades matching GRADE_LEVELS order
   const ordered = GRADE_LEVELS.filter(g => map.has(g)).map(g => ({ grade: g, teachers: map.get(g)! }));
+  // Then: any grade NOT in GRADE_LEVELS (old format, custom names, etc.)
+  map.forEach((ts, grade) => {
+    if (!GRADE_LEVELS.includes(grade)) ordered.push({ grade, teachers: ts });
+  });
+  // Finally: no grade assigned
   if (noGrade.length) ordered.push({ grade: '', teachers: noGrade });
   return ordered;
 }
