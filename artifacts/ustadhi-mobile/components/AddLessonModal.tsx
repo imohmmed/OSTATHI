@@ -59,21 +59,53 @@ const TABS: { key: LessonCategory; label: string }[] = [
   { key: 'upload', label: 'الرفع' },
 ];
 
-// ─── MCQ state ──────────────────────────────────────────────────────────────────
+// ─── MCQ ────────────────────────────────────────────────────────────────────────
 interface McqOption { text: string; isCorrect: boolean }
+interface McqQuestion { question: string; options: McqOption[]; points: number }
 const defaultMcqOptions = (): McqOption[] => [
-  { text: '', isCorrect: false },
-  { text: '', isCorrect: false },
-  { text: '', isCorrect: false },
-  { text: '', isCorrect: false },
+  { text: '', isCorrect: false }, { text: '', isCorrect: false },
+  { text: '', isCorrect: false }, { text: '', isCorrect: false },
 ];
+const defaultMcqQuestion = (): McqQuestion => ({ question: '', options: defaultMcqOptions(), points: 5 });
 
-// ─── True/False question ────────────────────────────────────────────────────────
+// ─── True/False ─────────────────────────────────────────────────────────────────
 interface TFQuestion { statement: string; correct: boolean | null }
 const defaultTFQuestion = (): TFQuestion => ({ statement: '', correct: null });
 
-// ─── Q&A pair ───────────────────────────────────────────────────────────────────
-interface QAPair { question: string; answer: string }
+// ─── Fill blank ─────────────────────────────────────────────────────────────────
+interface FbQuestion { text: string; answers: string[] }
+const defaultFbQuestion = (): FbQuestion => ({ text: '', answers: [] });
+
+// ─── Q&A (teacher writes question; student answers) ─────────────────────────────
+interface QAQuestion { question: string }
+
+// ─── Quiz item (any question type inside a quiz) ────────────────────────────────
+type QuizItemType = 'mcq' | 'true_false' | 'fill_blank' | 'qa'
+interface QuizItem {
+  id: string; // local key
+  type: QuizItemType;
+  // mcq
+  mcqQuestion?: string;
+  mcqOptions?: McqOption[];
+  mcqPoints?: number;
+  // true_false
+  tfStatement?: string;
+  tfCorrect?: boolean | null;
+  tfPoints?: number;
+  // fill_blank
+  fbText?: string;
+  fbAnswers?: string[];
+  // qa
+  qaQuestion?: string;
+}
+const newQuizItem = (type: QuizItemType): QuizItem => ({
+  id: Math.random().toString(36).slice(2),
+  type,
+  mcqQuestion: '', mcqOptions: defaultMcqOptions(), mcqPoints: 5,
+  tfStatement: '', tfCorrect: null, tfPoints: 2,
+  fbText: '', fbAnswers: [],
+  qaQuestion: '',
+});
 
 // ─── Field label ────────────────────────────────────────────────────────────────
 function FLabel({ text, fs, colors }: { text: string; fs: number; colors: any }) {
@@ -168,24 +200,23 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   // ── Livestream
   const [streamUrl, setStreamUrl] = useState('');
 
-  // ── MCQ
-  const [mcqQuestion, setMcqQuestion] = useState('');
-  const [mcqOptions, setMcqOptions] = useState<McqOption[]>(defaultMcqOptions());
-  const [mcqPoints, setMcqPoints] = useState('5');
+  // ── MCQ (multi-question)
+  const [mcqQuestions, setMcqQuestions] = useState<McqQuestion[]>([defaultMcqQuestion()]);
 
   // ── True/False (multi-question)
   const [tfQuestions, setTfQuestions] = useState<TFQuestion[]>([defaultTFQuestion()]);
   const [tfPoints, setTfPoints] = useState('2');
 
-  // ── Fill blank
-  const [fbText, setFbText] = useState('');
-  const [fbAnswers, setFbAnswers] = useState<string[]>([]);
+  // ── Fill blank (multi-question)
+  const [fbQuestions, setFbQuestions] = useState<FbQuestion[]>([defaultFbQuestion()]);
 
-  // ── Q&A
-  const [qaPairs, setQaPairs] = useState<QAPair[]>([{ question: '', answer: '' }]);
+  // ── Q&A (teacher writes question only; student answers)
+  const [qaQuestions, setQaQuestions] = useState<QAQuestion[]>([{ question: '' }]);
 
-  // ── Quiz
+  // ── Quiz builder
   const [quizTimeLimit, setQuizTimeLimit] = useState('30');
+  const [quizItems, setQuizItems] = useState<QuizItem[]>([]);
+  const [showQuizTypePicker, setShowQuizTypePicker] = useState(false);
 
   // ── Assignment
   const [assignInstructions, setAssignInstructions] = useState('');
@@ -197,11 +228,12 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
     setVideoSource('url'); setVideoUrl(''); setVideoFile(null); setDurationMin('');
     setPdfSource('url'); setPdfUrl(''); setPdfFile(null);
     setRichHtml(''); setLinkUrl(''); setStreamUrl('');
-    setMcqQuestion(''); setMcqOptions(defaultMcqOptions()); setMcqPoints('5');
+    setMcqQuestions([defaultMcqQuestion()]);
     setTfQuestions([defaultTFQuestion()]); setTfPoints('2');
-    setFbText(''); setFbAnswers([]);
-    setQaPairs([{ question: '', answer: '' }]);
-    setQuizTimeLimit('30'); setAssignInstructions(''); setAssignPoints('10');
+    setFbQuestions([defaultFbQuestion()]);
+    setQaQuestions([{ question: '' }]);
+    setQuizTimeLimit('30'); setQuizItems([]); setShowQuizTypePicker(false);
+    setAssignInstructions(''); setAssignPoints('10');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -229,22 +261,41 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
     }
   };
 
-  // ── Fill blank helper ─────────────────────────────────────────────────────
-  const onFbTextChange = (t: string) => {
-    setFbText(t);
-    const blanks = (t.match(/___/g) || []).length;
-    setFbAnswers(prev => {
-      const arr = [...prev];
-      while (arr.length < blanks) arr.push('');
-      return arr.slice(0, blanks);
-    });
-  };
+  // ── MCQ helpers (multi-question) ─────────────────────────────────────────
+  const updateMcqQuestion = (qi: number, field: Partial<McqQuestion>) =>
+    setMcqQuestions(prev => prev.map((q, i) => i === qi ? { ...q, ...field } : q));
+  const setMcqCorrect = (qi: number, oi: number) =>
+    updateMcqQuestion(qi, { options: mcqQuestions[qi].options.map((o, i) => ({ ...o, isCorrect: i === oi })) });
+  const setMcqOptionText = (qi: number, oi: number, t: string) =>
+    updateMcqQuestion(qi, { options: mcqQuestions[qi].options.map((o, i) => i === oi ? { ...o, text: t } : o) });
 
-  // ── MCQ helpers ───────────────────────────────────────────────────────────
-  const setMcqCorrect = (idx: number) =>
-    setMcqOptions(prev => prev.map((o, i) => ({ ...o, isCorrect: i === idx })));
-  const setMcqOptionText = (idx: number, t: string) =>
-    setMcqOptions(prev => prev.map((o, i) => i === idx ? { ...o, text: t } : o));
+  // ── Fill blank helpers (multi-question) ───────────────────────────────────
+  const onFbTextChange = (qi: number, t: string) => {
+    const blanks = (t.match(/___/g) || []).length;
+    setFbQuestions(prev => prev.map((q, i) => {
+      if (i !== qi) return q;
+      const arr = [...q.answers];
+      while (arr.length < blanks) arr.push('');
+      return { text: t, answers: arr.slice(0, blanks) };
+    }));
+  };
+  const setFbAnswer = (qi: number, ai: number, val: string) =>
+    setFbQuestions(prev => prev.map((q, i) => i === qi
+      ? { ...q, answers: q.answers.map((a, j) => j === ai ? val : a) }
+      : q));
+
+  // ── Quiz item helpers ─────────────────────────────────────────────────────
+  const updateQuizItem = (id: string, patch: Partial<QuizItem>) =>
+    setQuizItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
+  const quizItemFbTextChange = (id: string, t: string) => {
+    const blanks = (t.match(/___/g) || []).length;
+    setQuizItems(prev => prev.map(it => {
+      if (it.id !== id) return it;
+      const arr = [...(it.fbAnswers ?? [])];
+      while (arr.length < blanks) arr.push('');
+      return { ...it, fbText: t, fbAnswers: arr.slice(0, blanks) };
+    }));
+  };
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = () => {
@@ -274,10 +325,12 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
       case 'livestream':
         contentUrl = streamUrl.trim() || undefined;
         break;
-      case 'mcq':
-        if (!mcqQuestion.trim()) { Alert.alert('خطأ', 'نص السؤال مطلوب'); return; }
-        contentText = JSON.stringify({ question: mcqQuestion, options: mcqOptions, points: Number(mcqPoints) });
+      case 'mcq': {
+        const invalid = mcqQuestions.findIndex(q => !q.question.trim() || !q.options.some(o => o.isCorrect));
+        if (invalid !== -1) { Alert.alert('خطأ', `السؤال ${invalid + 1}: اكتب السؤال وحدد الإجابة الصحيحة`); return; }
+        contentText = JSON.stringify({ questions: mcqQuestions });
         break;
+      }
       case 'true_false': {
         const unanswered = tfQuestions.findIndex(q => !q.statement.trim() || q.correct === null);
         if (unanswered !== -1) {
@@ -287,15 +340,19 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
         contentText = JSON.stringify({ questions: tfQuestions, pointsPerQuestion: Number(tfPoints) });
         break;
       }
-      case 'fill_blank':
-        if (!fbText.trim()) { Alert.alert('خطأ', 'النص مطلوب'); return; }
-        contentText = JSON.stringify({ text: fbText, answers: fbAnswers });
+      case 'fill_blank': {
+        const inv = fbQuestions.findIndex(q => !q.text.trim());
+        if (inv !== -1) { Alert.alert('خطأ', `السؤال ${inv + 1}: النص مطلوب`); return; }
+        contentText = JSON.stringify({ questions: fbQuestions });
         break;
+      }
       case 'qa':
-        contentText = JSON.stringify({ pairs: qaPairs });
+        if (qaQuestions.every(q => !q.question.trim())) { Alert.alert('خطأ', 'أدخل سؤالاً واحداً على الأقل'); return; }
+        contentText = JSON.stringify({ questions: qaQuestions.filter(q => q.question.trim()) });
         break;
       case 'quiz':
-        contentText = JSON.stringify({ timeLimit: Number(quizTimeLimit) });
+        if (quizItems.length === 0) { Alert.alert('خطأ', 'أضف سؤالاً واحداً على الأقل للاختبار'); return; }
+        contentText = JSON.stringify({ timeLimit: Number(quizTimeLimit), items: quizItems });
         break;
       case 'assignment':
         contentText = JSON.stringify({ instructions: assignInstructions, points: Number(assignPoints) });
@@ -571,36 +628,72 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
                   </View>
                 )}
 
-                {/* ─ MCQ form ─ */}
+                {/* ─ MCQ form (multi-question) ─ */}
                 {selectedType === 'mcq' && (
                   <View style={S.formGroup}>
-                    <FLabel text="نص السؤال *" fs={fs} colors={colors} />
-                    <RInput value={mcqQuestion} onChange={setMcqQuestion} multiline placeholder="اكتب السؤال هنا..." colors={colors} fs={fs} />
-
-                    <FLabel text="الخيارات (اضغط ✓ لتحديد الصحيح)" fs={fs} colors={colors} />
-                    {mcqOptions.map((opt, idx) => (
-                      <View key={idx} style={[S.mcqRow, { borderColor: opt.isCorrect ? '#22c55e' : colors.border, backgroundColor: opt.isCorrect ? '#22c55e10' : colors.card }]}>
-                        <TouchableOpacity onPress={() => setMcqCorrect(idx)} style={[S.mcqRadio, { borderColor: opt.isCorrect ? '#22c55e' : colors.border }]}>
-                          {opt.isCorrect && <View style={S.mcqRadioInner} />}
-                        </TouchableOpacity>
-                        <TextInput
-                          value={opt.text}
-                          onChangeText={(t) => setMcqOptionText(idx, t)}
-                          placeholder={`الخيار ${['أ','ب','ج','د'][idx]}`}
-                          placeholderTextColor={colors.mutedForeground}
-                          style={[S.mcqInput, { color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
-                          textAlign="right"
-                        />
-                        <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, width: 24, textAlign: 'center' }]}>
-                          {['أ','ب','ج','د'][idx]}
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={[S.tfCountBadge, { backgroundColor: '#06b6d4' + '18', borderColor: '#06b6d4' + '40' }]}>
+                        <Text style={[{ color: '#06b6d4', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>
+                          {mcqQuestions.length} سؤال · {mcqQuestions.reduce((s, q) => s + q.points, 0)} نقطة
                         </Text>
+                      </View>
+                    </View>
+
+                    {mcqQuestions.map((mq, qi) => (
+                      <View key={qi} style={[S.tfCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                        {/* Card header */}
+                        <View style={S.tfCardHeader}>
+                          {mcqQuestions.length > 1 && (
+                            <TouchableOpacity onPress={() => setMcqQuestions(prev => prev.filter((_, i) => i !== qi))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                            </TouchableOpacity>
+                          )}
+                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                            <View style={[S.tfNumBadge, { backgroundColor: '#06b6d4' }]}>
+                              <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>{qi + 1}</Text>
+                            </View>
+                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>اختيار من متعدد</Text>
+                          </View>
+                        </View>
+
+                        {/* Question text */}
+                        <TextInput value={mq.question} onChangeText={t => updateMcqQuestion(qi, { question: t })}
+                          placeholder="اكتب السؤال هنا..." placeholderTextColor={colors.mutedForeground}
+                          multiline textAlign="right"
+                          style={[S.input, { color: colors.foreground, borderColor: colors.border + '80', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, minHeight: 64, textAlignVertical: 'top' }]}
+                        />
+
+                        {/* Options */}
+                        <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, textAlign: 'right' }]}>الخيارات — اضغط ✓ لتحديد الصحيح</Text>
+                        {mq.options.map((opt, oi) => (
+                          <View key={oi} style={[S.mcqRow, { borderColor: opt.isCorrect ? '#22c55e' : colors.border + '80', backgroundColor: opt.isCorrect ? '#22c55e10' : 'transparent' }]}>
+                            <TouchableOpacity onPress={() => setMcqCorrect(qi, oi)} style={[S.mcqRadio, { borderColor: opt.isCorrect ? '#22c55e' : colors.border }]}>
+                              {opt.isCorrect && <View style={S.mcqRadioInner} />}
+                            </TouchableOpacity>
+                            <TextInput value={opt.text} onChangeText={t => setMcqOptionText(qi, oi, t)}
+                              placeholder={`الخيار ${['أ','ب','ج','د'][oi]}`} placeholderTextColor={colors.mutedForeground}
+                              style={[S.mcqInput, { color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]} textAlign="right"
+                            />
+                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, width: 20, textAlign: 'center' }]}>{['أ','ب','ج','د'][oi]}</Text>
+                          </View>
+                        ))}
+
+                        {/* Points */}
+                        <View style={[S.rowField, { justifyContent: 'flex-end' }]}>
+                          <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>النقاط:</Text>
+                          <TextInput value={String(mq.points)} onChangeText={t => updateMcqQuestion(qi, { points: Number(t) || 0 })}
+                            keyboardType="numeric" textAlign="center"
+                            style={[S.input, { width: 64, color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}
+                          />
+                        </View>
                       </View>
                     ))}
 
-                    <View style={S.rowField}>
-                      <FLabel text="النقاط" fs={fs} colors={colors} />
-                      <RInput value={mcqPoints} onChange={setMcqPoints} keyboardType="numeric" colors={colors} fs={fs} style={{ width: 80, textAlign: 'center' }} />
-                    </View>
+                    <TouchableOpacity onPress={() => setMcqQuestions(prev => [...prev, defaultMcqQuestion()])}
+                      style={[S.addPairBtn, { borderColor: '#06b6d4' + '50', backgroundColor: '#06b6d4' + '10' }]}>
+                      <Ionicons name="add-circle-outline" size={20} color="#06b6d4" />
+                      <Text style={[{ color: '#06b6d4', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>إضافة سؤال</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -715,91 +808,246 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
                   </View>
                 )}
 
-                {/* ─ Fill blank form ─ */}
+                {/* ─ Fill blank form (multi-question) ─ */}
                 {selectedType === 'fill_blank' && (
                   <View style={S.formGroup}>
-                    <NoteBox text='اكتب النص واستخدم ___ (ثلاثة شرطات سفلية) لتمييز كل فراغ. مثال: عاصمة العراق هي ___' icon="information-circle-outline" colors={colors} fs={fs} />
-                    <FLabel text="النص مع الفراغات *" fs={fs} colors={colors} />
-                    <RInput value={fbText} onChange={onFbTextChange} multiline placeholder="مثال: عاصمة العراق هي ___" colors={colors} fs={fs} />
+                    <NoteBox text='استخدم ___ (ثلاث شرطات سفلية) لكل فراغ. مثال: عاصمة العراق هي ___' icon="information-circle-outline" colors={colors} fs={fs} />
 
-                    {fbAnswers.length > 0 && (
-                      <>
-                        <FLabel text={`الإجابات (${fbAnswers.length} فراغ)`} fs={fs} colors={colors} />
-                        {fbAnswers.map((ans, idx) => (
-                          <View key={idx} style={S.fbRow}>
-                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, minWidth: 60, textAlign: 'right' }]}>
-                              فراغ {idx + 1}:
-                            </Text>
-                            <TextInput
-                              value={ans}
-                              onChangeText={t => setFbAnswers(prev => prev.map((a, i) => i === idx ? t : a))}
-                              placeholder={`إجابة الفراغ ${idx + 1}`}
-                              placeholderTextColor={colors.mutedForeground}
-                              style={[S.input, { flex: 1, color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}
-                              textAlign="right"
-                            />
-                          </View>
-                        ))}
-                      </>
-                    )}
-                  </View>
-                )}
+                    <View style={[S.tfCountBadge, { backgroundColor: '#a855f7' + '18', borderColor: '#a855f7' + '40', alignSelf: 'flex-end' }]}>
+                      <Text style={[{ color: '#a855f7', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>{fbQuestions.length} سؤال</Text>
+                    </View>
 
-                {/* ─ Q&A form ─ */}
-                {selectedType === 'qa' && (
-                  <View style={S.formGroup}>
-                    {qaPairs.map((pair, idx) => (
-                      <View key={idx} style={[S.qaCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <View style={S.qaCardHeader}>
-                          <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>
-                            سؤال {idx + 1}
-                          </Text>
-                          {qaPairs.length > 1 && (
-                            <TouchableOpacity onPress={() => setQaPairs(prev => prev.filter((_, i) => i !== idx))}>
-                              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                    {fbQuestions.map((fbq, qi) => (
+                      <View key={qi} style={[S.tfCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                        <View style={S.tfCardHeader}>
+                          {fbQuestions.length > 1 && (
+                            <TouchableOpacity onPress={() => setFbQuestions(prev => prev.filter((_, i) => i !== qi))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="trash-outline" size={17} color="#ef4444" />
                             </TouchableOpacity>
                           )}
+                          <View style={[S.tfNumBadge, { backgroundColor: '#a855f7' }]}>
+                            <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>{qi + 1}</Text>
+                          </View>
                         </View>
-                        <TextInput
-                          value={pair.question}
-                          onChangeText={t => setQaPairs(prev => prev.map((p, i) => i === idx ? { ...p, question: t } : p))}
-                          placeholder="السؤال..."
-                          placeholderTextColor={colors.mutedForeground}
-                          multiline
-                          style={[S.input, { color: colors.foreground, borderColor: colors.border + '80', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
-                          textAlign="right"
+
+                        <TextInput value={fbq.text} onChangeText={t => onFbTextChange(qi, t)}
+                          placeholder="مثال: عاصمة العراق هي ___" placeholderTextColor={colors.mutedForeground}
+                          multiline textAlign="right"
+                          style={[S.input, { color: colors.foreground, borderColor: colors.border + '80', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, minHeight: 72, textAlignVertical: 'top' }]}
                         />
-                        <TextInput
-                          value={pair.answer}
-                          onChangeText={t => setQaPairs(prev => prev.map((p, i) => i === idx ? { ...p, answer: t } : p))}
-                          placeholder="الجواب..."
-                          placeholderTextColor={colors.mutedForeground}
-                          multiline
-                          style={[S.input, { color: '#22c55e', borderColor: '#22c55e30', backgroundColor: '#22c55e08', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
-                          textAlign="right"
-                        />
+
+                        {fbq.answers.length > 0 && (
+                          <View style={{ gap: 6 }}>
+                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, textAlign: 'right' }]}>الإجابات ({fbq.answers.length} فراغ)</Text>
+                            {fbq.answers.map((ans, ai) => (
+                              <View key={ai} style={S.fbRow}>
+                                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs, minWidth: 54, textAlign: 'right' }]}>فراغ {ai + 1}:</Text>
+                                <TextInput value={ans} onChangeText={t => setFbAnswer(qi, ai, t)}
+                                  placeholder={`إجابة ${ai + 1}`} placeholderTextColor={colors.mutedForeground}
+                                  style={[S.input, { flex: 1, color: colors.foreground, borderColor: '#a855f7' + '50', backgroundColor: '#a855f7' + '08', fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}
+                                  textAlign="right"
+                                />
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     ))}
-                    <TouchableOpacity
-                      onPress={() => setQaPairs(prev => [...prev, { question: '', answer: '' }])}
-                      style={[S.addPairBtn, { borderColor: colors.primary + '50', backgroundColor: colors.primary + '10' }]}
-                    >
-                      <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                      <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                        إضافة سؤال
-                      </Text>
+
+                    <TouchableOpacity onPress={() => setFbQuestions(prev => [...prev, defaultFbQuestion()])}
+                      style={[S.addPairBtn, { borderColor: '#a855f7' + '50', backgroundColor: '#a855f7' + '10' }]}>
+                      <Ionicons name="add-circle-outline" size={20} color="#a855f7" />
+                      <Text style={[{ color: '#a855f7', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>إضافة سؤال</Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
-                {/* ─ Quiz form ─ */}
+                {/* ─ Q&A form (teacher writes questions; students write answers) ─ */}
+                {selectedType === 'qa' && (
+                  <View style={S.formGroup}>
+                    <NoteBox text="الطالب يكتب جوابه بنفسه — أنت تكتب السؤال فقط" icon="information-circle-outline" colors={colors} fs={fs} />
+
+                    {qaQuestions.map((q, idx) => (
+                      <View key={idx} style={[S.qaCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={S.qaCardHeader}>
+                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                            <View style={[S.tfNumBadge, { backgroundColor: '#f97316' }]}>
+                              <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>{idx + 1}</Text>
+                            </View>
+                            <Text style={[{ color: '#f97316', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>سؤال</Text>
+                          </View>
+                          {qaQuestions.length > 1 && (
+                            <TouchableOpacity onPress={() => setQaQuestions(prev => prev.filter((_, i) => i !== idx))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <TextInput value={q.question}
+                          onChangeText={t => setQaQuestions(prev => prev.map((p, i) => i === idx ? { question: t } : p))}
+                          placeholder="اكتب سؤالك هنا... الطالب سيكتب شرحاً مفصلاً في خانة الجواب"
+                          placeholderTextColor={colors.mutedForeground} multiline textAlign="right"
+                          style={[S.input, { color: colors.foreground, borderColor: colors.border + '80', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, minHeight: 80, textAlignVertical: 'top' }]}
+                        />
+                        <View style={[S.qaAnswerHint, { backgroundColor: '#f97316' + '0C', borderColor: '#f97316' + '30' }]}>
+                          <Ionicons name="create-outline" size={14} color="#f97316" />
+                          <Text style={[{ color: '#f97316', fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, flex: 1, textAlign: 'right' }]}>
+                            خانة الجواب يملأها الطالب
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+
+                    <TouchableOpacity onPress={() => setQaQuestions(prev => [...prev, { question: '' }])}
+                      style={[S.addPairBtn, { borderColor: '#f97316' + '50', backgroundColor: '#f97316' + '10' }]}>
+                      <Ionicons name="add-circle-outline" size={18} color="#f97316" />
+                      <Text style={[{ color: '#f97316', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>إضافة سؤال</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* ─ Quiz builder (mix of all types) ─ */}
                 {selectedType === 'quiz' && (
                   <View style={S.formGroup}>
-                    <NoteBox text="سيُنشأ الاختبار فارغاً. يمكنك إضافة أسئلة من نوع MCQ وصح/خطأ وملء فراغات بعد الحفظ." icon="school-outline" colors={colors} fs={fs} />
-                    <View style={S.rowField}>
-                      <FLabel text="الوقت المسموح (دقيقة)" fs={fs} colors={colors} />
-                      <RInput value={quizTimeLimit} onChange={setQuizTimeLimit} keyboardType="numeric" colors={colors} fs={fs} style={{ width: 80, textAlign: 'center' }} />
+                    {/* Time + count */}
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={[S.rowField]}>
+                        <FLabel text="الوقت (دقيقة)" fs={fs} colors={colors} />
+                        <RInput value={quizTimeLimit} onChange={setQuizTimeLimit} keyboardType="numeric" colors={colors} fs={fs} style={{ width: 70, textAlign: 'center' }} />
+                      </View>
+                      <View style={[S.tfCountBadge, { backgroundColor: '#ec4899' + '18', borderColor: '#ec4899' + '40' }]}>
+                        <Text style={[{ color: '#ec4899', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>
+                          {quizItems.length} سؤال
+                        </Text>
+                      </View>
                     </View>
+
+                    {/* Quiz items */}
+                    {quizItems.map((item) => (
+                      <View key={item.id} style={[S.tfCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                        {/* Item header */}
+                        <View style={S.tfCardHeader}>
+                          <TouchableOpacity onPress={() => setQuizItems(prev => prev.filter(it => it.id !== item.id))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                            <View style={[S.tfNumBadge, { backgroundColor: item.type === 'mcq' ? '#06b6d4' : item.type === 'true_false' ? '#22c55e' : item.type === 'fill_blank' ? '#a855f7' : '#f97316' }]}>
+                              <Ionicons name={item.type === 'mcq' ? 'radio-button-on' : item.type === 'true_false' ? 'checkmark-circle' : item.type === 'fill_blank' ? 'pencil' : 'help-circle'} size={13} color="#fff" />
+                            </View>
+                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
+                              {item.type === 'mcq' ? 'اختيار من متعدد' : item.type === 'true_false' ? 'صح وخطأ' : item.type === 'fill_blank' ? 'ملء الفراغات' : 'سؤال مفتوح'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* MCQ inside quiz */}
+                        {item.type === 'mcq' && (
+                          <View style={{ gap: 8 }}>
+                            <TextInput value={item.mcqQuestion ?? ''} onChangeText={t => updateQuizItem(item.id, { mcqQuestion: t })}
+                              placeholder="اكتب السؤال..." placeholderTextColor={colors.mutedForeground} multiline textAlign="right"
+                              style={[S.input, { color: colors.foreground, borderColor: colors.border + '60', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, minHeight: 56, textAlignVertical: 'top' }]}
+                            />
+                            {(item.mcqOptions ?? defaultMcqOptions()).map((opt, oi) => (
+                              <View key={oi} style={[S.mcqRow, { borderColor: opt.isCorrect ? '#22c55e' : colors.border + '60', backgroundColor: opt.isCorrect ? '#22c55e10' : 'transparent' }]}>
+                                <TouchableOpacity onPress={() => updateQuizItem(item.id, { mcqOptions: (item.mcqOptions ?? defaultMcqOptions()).map((o, i) => ({ ...o, isCorrect: i === oi })) })}
+                                  style={[S.mcqRadio, { borderColor: opt.isCorrect ? '#22c55e' : colors.border }]}>
+                                  {opt.isCorrect && <View style={S.mcqRadioInner} />}
+                                </TouchableOpacity>
+                                <TextInput value={opt.text} onChangeText={t => updateQuizItem(item.id, { mcqOptions: (item.mcqOptions ?? defaultMcqOptions()).map((o, i) => i === oi ? { ...o, text: t } : o) })}
+                                  placeholder={`الخيار ${['أ','ب','ج','د'][oi]}`} placeholderTextColor={colors.mutedForeground}
+                                  style={[S.mcqInput, { color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]} textAlign="right"
+                                />
+                                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, width: 18 }]}>{['أ','ب','ج','د'][oi]}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                        {/* True/False inside quiz */}
+                        {item.type === 'true_false' && (
+                          <View style={{ gap: 8 }}>
+                            <TextInput value={item.tfStatement ?? ''} onChangeText={t => updateQuizItem(item.id, { tfStatement: t })}
+                              placeholder="اكتب العبارة..." placeholderTextColor={colors.mutedForeground} multiline textAlign="right"
+                              style={[S.input, { color: colors.foreground, borderColor: colors.border + '60', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, minHeight: 56, textAlignVertical: 'top' }]}
+                            />
+                            <View style={S.tfRow}>
+                              {[{ v: true, label: 'صح', color: '#22c55e' }, { v: false, label: 'خطأ', color: '#ef4444' }].map(btn => {
+                                const sel = item.tfCorrect === btn.v;
+                                return (
+                                  <TouchableOpacity key={String(btn.v)} onPress={() => updateQuizItem(item.id, { tfCorrect: btn.v })}
+                                    style={[S.tfBtn, { borderColor: sel ? btn.color : colors.border, backgroundColor: sel ? btn.color + '22' : colors.background }]}>
+                                    <Text style={[{ color: sel ? btn.color : colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>{btn.label}</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Fill blank inside quiz */}
+                        {item.type === 'fill_blank' && (
+                          <View style={{ gap: 8 }}>
+                            <TextInput value={item.fbText ?? ''} onChangeText={t => quizItemFbTextChange(item.id, t)}
+                              placeholder="مثال: عاصمة العراق هي ___" placeholderTextColor={colors.mutedForeground} multiline textAlign="right"
+                              style={[S.input, { color: colors.foreground, borderColor: colors.border + '60', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, minHeight: 56, textAlignVertical: 'top' }]}
+                            />
+                            {(item.fbAnswers ?? []).map((ans, ai) => (
+                              <View key={ai} style={S.fbRow}>
+                                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs, minWidth: 50, textAlign: 'right' }]}>فراغ {ai + 1}:</Text>
+                                <TextInput value={ans} onChangeText={t => updateQuizItem(item.id, { fbAnswers: (item.fbAnswers ?? []).map((a, j) => j === ai ? t : a) })}
+                                  placeholder={`إجابة ${ai + 1}`} placeholderTextColor={colors.mutedForeground}
+                                  style={[S.input, { flex: 1, color: colors.foreground, borderColor: '#a855f7' + '40', backgroundColor: '#a855f7' + '08', fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]} textAlign="right"
+                                />
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                        {/* Q&A inside quiz */}
+                        {item.type === 'qa' && (
+                          <View style={{ gap: 6 }}>
+                            <TextInput value={item.qaQuestion ?? ''} onChangeText={t => updateQuizItem(item.id, { qaQuestion: t })}
+                              placeholder="اكتب سؤالك... الطالب يكتب جوابه" placeholderTextColor={colors.mutedForeground} multiline textAlign="right"
+                              style={[S.input, { color: colors.foreground, borderColor: colors.border + '60', backgroundColor: 'transparent', fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, minHeight: 64, textAlignVertical: 'top' }]}
+                            />
+                            <View style={[S.qaAnswerHint, { backgroundColor: '#f97316' + '0C', borderColor: '#f97316' + '30' }]}>
+                              <Ionicons name="create-outline" size={14} color="#f97316" />
+                              <Text style={[{ color: '#f97316', fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs, flex: 1, textAlign: 'right' }]}>خانة الجواب يملأها الطالب</Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+
+                    {/* Add question button / type picker */}
+                    {!showQuizTypePicker ? (
+                      <TouchableOpacity onPress={() => setShowQuizTypePicker(true)}
+                        style={[S.addPairBtn, { borderColor: '#ec4899' + '50', backgroundColor: '#ec4899' + '10' }]}>
+                        <Ionicons name="add-circle-outline" size={20} color="#ec4899" />
+                        <Text style={[{ color: '#ec4899', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>إضافة سؤال للاختبار</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={[S.quizTypePicker, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'right', marginBottom: 8 }]}>اختر نوع السؤال</Text>
+                        <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 }}>
+                          {[
+                            { type: 'mcq' as QuizItemType, label: 'اختيار متعدد', icon: 'radio-button-on' as const, color: '#06b6d4' },
+                            { type: 'true_false' as QuizItemType, label: 'صح / خطأ', icon: 'checkmark-circle' as const, color: '#22c55e' },
+                            { type: 'fill_blank' as QuizItemType, label: 'ملء الفراغات', icon: 'pencil' as const, color: '#a855f7' },
+                            { type: 'qa' as QuizItemType, label: 'سؤال مفتوح', icon: 'help-circle' as const, color: '#f97316' },
+                          ].map(opt => (
+                            <TouchableOpacity key={opt.type}
+                              onPress={() => { setQuizItems(prev => [...prev, newQuizItem(opt.type)]); setShowQuizTypePicker(false); }}
+                              style={[S.quizTypeOption, { backgroundColor: opt.color + '18', borderColor: opt.color + '50' }]}>
+                              <Ionicons name={opt.icon} size={18} color={opt.color} />
+                              <Text style={[{ color: opt.color, fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>{opt.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TouchableOpacity onPress={() => setShowQuizTypePicker(false)} style={{ alignSelf: 'center', marginTop: 8 }}>
+                          <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>إلغاء</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -893,7 +1141,12 @@ const S = StyleSheet.create({
   // Q&A
   qaCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
   qaCardHeader: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+  qaAnswerHint: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, padding: 8, borderRadius: 8, borderWidth: 1 },
   addPairBtn: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
+
+  // Quiz builder
+  quizTypePicker: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
+  quizTypeOption: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1 },
 
   // Shared
   rowField: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, justifyContent: 'flex-start' },

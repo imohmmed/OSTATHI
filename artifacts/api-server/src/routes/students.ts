@@ -96,7 +96,7 @@ router.delete("/students/:id", requireAdmin, async (req, res): Promise<void> => 
 });
 
 // Student courses
-router.get("/students/:id/courses", requireAdmin, async (req, res): Promise<void> => {
+router.get("/students/:id/courses", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const assignments = await db
