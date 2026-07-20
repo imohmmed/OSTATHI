@@ -10,8 +10,9 @@ import {
   assistantsTable,
   coursesTable,
   messagesTable,
+  studentCoursesTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 
 // ── Mobile admin auth middleware ──────────────────────
 function requireMobileAdmin(req: Request, res: Response, next: NextFunction): void {
@@ -138,6 +139,7 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
       role: "parent",
       studentId: parent.studentId,
       studentName: student2?.fullName ?? null,
+      parentToken: parent.password,
     });
     return;
   }
@@ -204,6 +206,158 @@ router.get("/mobile/admin/messages", requireMobileAdmin, async (req, res): Promi
     .leftJoin(teachersTable, eq(messagesTable.toTeacherId, teachersTable.id))
     .orderBy(messagesTable.createdAt);
   res.json(rows);
+});
+
+// ── Mobile Admin: إنشاء طالب ──────────────────────────
+router.post("/mobile/admin/students", requireMobileAdmin, async (req, res): Promise<void> => {
+  const { fullName, phone, gradeLevel, username, password, notes } = req.body ?? {};
+  if (!fullName || !gradeLevel || !username || !password) {
+    res.status(400).json({ error: "الاسم والصف واسم المستخدم وكلمة المرور مطلوبة" });
+    return;
+  }
+  try {
+    const [student] = await db.insert(studentsTable).values({
+      fullName, phone: phone || "", gradeLevel, username, password,
+      notes: notes || null,
+    }).returning();
+    res.status(201).json({ ...student, password: undefined });
+  } catch {
+    res.status(409).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+  }
+});
+
+// ── Mobile Admin: تعديل طالب ──────────────────────────
+router.put("/mobile/admin/students/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { fullName, phone, gradeLevel, username, password, notes, isActive } = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+  if (fullName !== undefined) updates.fullName = fullName;
+  if (phone !== undefined) updates.phone = phone;
+  if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
+  if (username !== undefined) updates.username = username;
+  if (password !== undefined && password !== "") updates.password = password;
+  if (notes !== undefined) updates.notes = notes;
+  if (isActive !== undefined) updates.isActive = isActive;
+  const [student] = await db.update(studentsTable).set(updates).where(eq(studentsTable.id, id)).returning();
+  if (!student) { res.status(404).json({ error: "الطالب غير موجود" }); return; }
+  res.json({ ...student, password: undefined });
+});
+
+// ── Mobile Admin: تفاصيل طالب واحد ───────────────────
+router.get("/mobile/admin/students/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, id));
+  if (!student) { res.status(404).json({ error: "الطالب غير موجود" }); return; }
+  // enrolled courses
+  const enrolled = await db.select({ courseId: studentCoursesTable.courseId })
+    .from(studentCoursesTable).where(eq(studentCoursesTable.studentId, id));
+  const courseIds = enrolled.map(r => r.courseId);
+  const courseList = courseIds.length > 0
+    ? await db.select({ id: coursesTable.id, title: coursesTable.title })
+        .from(coursesTable).where(inArray(coursesTable.id, courseIds))
+    : [];
+  // parent
+  const [parent] = await db.select({ id: parentsTable.id, fullName: parentsTable.fullName, username: parentsTable.username, phone: parentsTable.phone })
+    .from(parentsTable).where(eq(parentsTable.studentId, id));
+  res.json({ ...student, password: undefined, courses: courseList, parent: parent ?? null });
+});
+
+// ── Mobile Admin: إضافة ولي أمر لطالب ────────────────
+router.post("/mobile/admin/students/:id/parent", requireMobileAdmin, async (req, res): Promise<void> => {
+  const studentId = parseInt(req.params.id, 10);
+  const { fullName, phone, username, password } = req.body ?? {};
+  if (!fullName || !username || !password) {
+    res.status(400).json({ error: "الاسم واسم المستخدم وكلمة المرور مطلوبة" });
+    return;
+  }
+  try {
+    const [parent] = await db.insert(parentsTable).values({
+      fullName, phone: phone || "", username, password, studentId,
+    }).returning();
+    res.status(201).json({ ...parent, password: undefined });
+  } catch {
+    res.status(409).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+  }
+});
+
+// ── Mobile Admin: تسجيل طالب في كورسات ───────────────
+router.post("/mobile/admin/students/:id/enroll", requireMobileAdmin, async (req, res): Promise<void> => {
+  const studentId = parseInt(req.params.id, 10);
+  const { courseIds } = req.body ?? {};
+  if (!Array.isArray(courseIds)) { res.status(400).json({ error: "courseIds مطلوب" }); return; }
+  // remove old enrollments then insert new
+  await db.delete(studentCoursesTable).where(eq(studentCoursesTable.studentId, studentId));
+  if (courseIds.length > 0) {
+    await db.insert(studentCoursesTable)
+      .values(courseIds.map((cId: number) => ({ studentId, courseId: cId })))
+      .onConflictDoNothing();
+  }
+  res.json({ enrolled: courseIds.length });
+});
+
+// ── Mobile Admin: إنشاء أستاذ داخل مادة ─────────────
+router.post("/mobile/admin/teachers", requireMobileAdmin, async (req, res): Promise<void> => {
+  const { fullName, phone, username, password, bio, subjectId, gradeLevels } = req.body ?? {};
+  if (!fullName || !username || !password) {
+    res.status(400).json({ error: "الاسم واسم المستخدم وكلمة المرور مطلوبة" });
+    return;
+  }
+  try {
+    const [teacher] = await db.insert(teachersTable).values({
+      fullName, phone: phone || "", username, password, bio: bio || null,
+    }).returning();
+    if (subjectId) {
+      await db.insert(teacherSubjectsTable).values({ teacherId: teacher.id, subjectId }).onConflictDoNothing();
+    }
+    if (gradeLevels?.length) {
+      await db.insert(teacherGradeLevelsTable)
+        .values(gradeLevels.map((gl: string) => ({ teacherId: teacher.id, gradeLevel: gl })));
+    }
+    res.status(201).json({ ...teacher, password: undefined, subjectId, gradeLevels });
+  } catch {
+    res.status(409).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+  }
+});
+
+// ── Mobile Admin: تفاصيل مادة مع أساتذتها ───────────
+router.get("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [subject] = await db.select().from(subjectsTable).where(eq(subjectsTable.id, id));
+  if (!subject) { res.status(404).json({ error: "المادة غير موجودة" }); return; }
+  const teachers = await db.select({
+    id: teachersTable.id,
+    fullName: teachersTable.fullName,
+    phone: teachersTable.phone,
+    username: teachersTable.username,
+    bio: teachersTable.bio,
+    avatarUrl: teachersTable.avatarUrl,
+    isActive: teachersTable.isActive,
+  })
+    .from(teacherSubjectsTable)
+    .innerJoin(teachersTable, eq(teacherSubjectsTable.teacherId, teachersTable.id))
+    .where(eq(teacherSubjectsTable.subjectId, id));
+  res.json({ ...subject, teachers });
+});
+
+// ── Mobile Parent: معلومات الطفل الكاملة ─────────────
+router.get("/mobile/parent/child", async (req, res): Promise<void> => {
+  const parentId = parseInt(req.headers["x-parent-id"] as string, 10);
+  const token = req.headers["x-parent-token"] as string;
+  if (!parentId || !token) { res.status(401).json({ error: "غير مصرح" }); return; }
+  const [parent] = await db.select().from(parentsTable).where(eq(parentsTable.id, parentId));
+  if (!parent || parent.password !== token) { res.status(401).json({ error: "غير مصرح" }); return; }
+  const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, parent.studentId));
+  if (!student) { res.status(404).json({ error: "الطالب غير موجود" }); return; }
+  const enrolled = await db.select({ courseId: studentCoursesTable.courseId })
+    .from(studentCoursesTable).where(eq(studentCoursesTable.studentId, student.id));
+  const courseIds = enrolled.map(r => r.courseId);
+  const courses = courseIds.length > 0
+    ? await db.select({
+        id: coursesTable.id, title: coursesTable.title,
+        description: coursesTable.description,
+      }).from(coursesTable).where(inArray(coursesTable.id, courseIds))
+    : [];
+  res.json({ student: { ...student, password: undefined }, courses });
 });
 
 export default router;

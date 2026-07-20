@@ -483,12 +483,142 @@ function AdminHome() {
 }
 
 // ─────────────────────────────────────────────
+// PARENT HOME — معلومات الطفل الكاملة
+// ─────────────────────────────────────────────
+function useParentChild(parentId: number | undefined, parentToken: string | undefined) {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  return useQuery<{
+    student: { id: number; fullName: string; gradeLevel: string; isActive: boolean; notes: string | null };
+    courses: { id: number; title: string; description: string | null }[];
+  }>({
+    queryKey: ['parent-child', parentId],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/mobile/parent/child`, {
+        headers: { 'x-parent-id': String(parentId), 'x-parent-token': parentToken ?? '' },
+      });
+      if (!res.ok) throw new Error('فشل');
+      return res.json();
+    },
+    enabled: !!parentId && !!parentToken,
+  });
+}
+
+function ParentHome() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useApp();
+  const { user } = useAuth();
+  const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data, isLoading, refetch } = useParentChild(user?.id, (user as any)?.parentToken);
+  const onRefresh = async () => { setRefreshing(true); await refetch(); setRefreshing(false); };
+  const student = data?.student;
+  const courses = data?.courses ?? [];
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+      >
+        {/* Parent hero */}
+        <LinearGradient
+          colors={['#101D36', '#1e3a6e', '#2d5299']}
+          style={[styles.teacherHero, { paddingTop: topPad + 20 }]}
+        >
+          <View style={[styles.teacherAvatar, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <Ionicons name="people" size={32} color="#D4A843" />
+          </View>
+          <Text style={[{ fontFamily: 'Tajawal_900Black', color: '#fff', fontSize: 20 * fs }]}>
+            {user?.fullName}
+          </Text>
+          <Text style={[{ fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 13 * fs }]}>
+            ولي أمر
+          </Text>
+          {student && (
+            <View style={styles.teacherStatsRow}>
+              <View style={styles.teacherStatItem}>
+                <Text style={[{ fontFamily: 'Tajawal_700Bold', color: '#D4A843', fontSize: 22 * fs }]}>{student.gradeLevel}</Text>
+                <Text style={[{ fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 12 * fs }]}>الصف</Text>
+              </View>
+              <View style={styles.teacherStatItem}>
+                <Text style={[{ fontFamily: 'Tajawal_700Bold', color: '#D4A843', fontSize: 22 * fs }]}>{courses.length}</Text>
+                <Text style={[{ fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 12 * fs }]}>كورس</Text>
+              </View>
+            </View>
+          )}
+        </LinearGradient>
+
+        {/* Child info */}
+        {student && (
+          <View style={{ marginHorizontal: 16, marginTop: 16, gap: 12 }}>
+            <View style={[{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 24, padding: 16, gap: 10 }]}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs, textAlign: 'right' }]}>معلومات الطالب</Text>
+              {[
+                { label: 'الاسم', value: student.fullName },
+                { label: 'الصف', value: student.gradeLevel },
+                { label: 'الحالة', value: student.isActive ? '✅ مفعّل' : '🔴 موقوف' },
+              ].map(row => (
+                <View key={row.label} style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+                  <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>{row.label}</Text>
+                  <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>{row.value}</Text>
+                </View>
+              ))}
+              {student.notes && (
+                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right', lineHeight: 20, marginTop: 4 }]}>
+                  📝 {student.notes}
+                </Text>
+              )}
+            </View>
+
+            {/* Courses */}
+            <View style={[{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 24, padding: 16, gap: 10 }]}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs, textAlign: 'right' }]}>
+                الكورسات المسجّل بها ({courses.length})
+              </Text>
+              {courses.length === 0 ? (
+                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, textAlign: 'right' }]}>
+                  لم يُسجَّل في أي كورس بعد
+                </Text>
+              ) : (
+                courses.map(c => (
+                  <View key={c.id} style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+                    <Ionicons name="book-outline" size={18} color={colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'right' }]}>{c.title}</Text>
+                      {c.description && (
+                        <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]} numberOfLines={1}>{c.description}</Text>
+                      )}
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        )}
+
+        {isLoading && (
+          <View style={{ alignItems: 'center', padding: 40 }}>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>جاري التحميل...</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
 // ROOT EXPORT — role-aware
 // ─────────────────────────────────────────────
 export default function HomeScreen() {
   const { user } = useAuth();
   if (user?.role === 'admin') return <AdminHome />;
   if (user?.role === 'teacher') return <TeacherHome />;
+  if (user?.role === 'parent') return <ParentHome />;
   return <StudentHome />;
 }
 

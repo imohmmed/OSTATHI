@@ -13,6 +13,8 @@ export interface AuthUser {
   avatarUrl?: string;
   // أدمن
   adminToken?: string;
+  // ولي الأمر
+  parentToken?: string;
   // طالب
   studentId?: number;
   studentName?: string;

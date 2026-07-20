@@ -43,7 +43,7 @@ function NativeTabLayout({ isTeacher }: { isTeacher: boolean }) {
 }
 
 // ─── Classic Tab Layout (Android / Web / iOS < 26) ──
-function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
+function ClassicTabLayout({ isTeacher, isAdmin }: { isTeacher: boolean; isAdmin: boolean }) {
   return (
     <Tabs
       screenOptions={{
@@ -89,9 +89,9 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
       <Tabs.Screen
         name="courses"
         options={{
-          title: 'كورساتي',
+          title: isAdmin ? 'المواد' : 'كورساتي',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
+            <Ionicons name={focused ? (isAdmin ? 'library' : 'book') : (isAdmin ? 'library-outline' : 'book-outline')} size={22} color={color} />
           ),
         }}
       />
@@ -130,9 +130,10 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
 export default function TabLayout() {
   const { user } = useAuth();
   const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
 
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout isTeacher={isTeacher} />;
   }
-  return <ClassicTabLayout isTeacher={isTeacher} />;
+  return <ClassicTabLayout isTeacher={isTeacher} isAdmin={isAdmin} />;
 }

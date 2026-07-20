@@ -344,10 +344,111 @@ function StudentCourses() {
 }
 
 // ─────────────────────────────────────────────
+// ADMIN: إدارة المواد
+// ─────────────────────────────────────────────
+function AdminSubjects() {
+  const c = useColors();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useApp();
+  const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: subjects, isLoading, refetch } = useGetSubjects();
+
+  const onRefresh = async () => { setRefreshing(true); await refetch(); setRefreshing(false); };
+
+  return (
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: c.border }]}>
+        <Text style={[styles.screenTitle, { color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
+          المواد الدراسية
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.push('/admin/new-subject' as any)}
+          style={[styles.addBtn, { backgroundColor: c.primary }]}
+        >
+          <Ionicons name="add" size={18} color={c.primaryForeground} />
+          <Text style={[{ color: c.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>مادة جديدة</Text>
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={subjects ?? []}
+        keyExtractor={(s) => String(s.id)}
+        numColumns={2}
+        columnWrapperStyle={{ paddingHorizontal: 12, gap: 12, justifyContent: 'flex-end' }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/subject/[id]' as any, params: { id: item.id, name: encodeURIComponent(item.name) } })}
+            style={[subjectStyles.card, { backgroundColor: c.card, borderColor: c.border, flex: 1 }]}
+            activeOpacity={0.75}
+          >
+            <Text style={{ fontSize: 36 }}>{item.icon ?? '📚'}</Text>
+            <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'center' }]} numberOfLines={2}>
+              {item.name}
+            </Text>
+            {item.gradeLevel ? (
+              <View style={[subjectStyles.gradePill, { backgroundColor: `${c.primary}20` }]}>
+                <Text style={[{ color: c.primary, fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }]}>
+                  {item.gradeLevel}
+                </Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+        )}
+        ListHeaderComponent={
+          isLoading ? (
+            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', padding: 12, gap: 12 }}>
+              {[1, 2, 3, 4].map(i => (
+                <View key={i} style={[subjectStyles.card, { backgroundColor: c.card, borderColor: c.border, flex: 1 }]} />
+              ))}
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="library-outline" size={48} color={c.mutedForeground} />
+              <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
+                لا توجد مواد بعد
+              </Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 + insets.bottom, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+}
+
+const subjectStyles = StyleSheet.create({
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 18,
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 140,
+    justifyContent: 'center',
+  },
+  gradePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+});
+
+// ─────────────────────────────────────────────
 // ROOT EXPORT — role-aware
 // ─────────────────────────────────────────────
 export default function CoursesScreen() {
   const { user } = useAuth();
+  if (user?.role === 'admin') return <AdminSubjects />;
   if (user?.role === 'teacher') return <TeacherCourses />;
   return <StudentCourses />;
 }
