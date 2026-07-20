@@ -1,3 +1,4 @@
+import 'expo-dev-client';
 import React, { useEffect } from 'react';
 import { I18nManager, View, Text, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

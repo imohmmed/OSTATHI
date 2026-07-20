@@ -16,14 +16,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PageHeader } from '@/components/PageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useVideoPlayer, VideoView, isPictureInPictureSupported } from 'expo-video';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -104,17 +103,6 @@ export default function LessonViewerScreen() {
   // ── Video progress ──────────────────────────────────────────────────────────
   const [savedPosition, setSavedPosition] = useState(0);
   const [progressLoaded, setProgressLoaded] = useState(false);
-  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const playerRef = useRef<any>(null);
-
-  // ── Custom video controls state ──────────────────────────────────────────────
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTimeDisplay, setCurrentTimeDisplay] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [seekBarWidth, setSeekBarWidth] = useState(1);
-  const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pipSupported = isPictureInPictureSupported();
 
   const studentId = user?.role === 'student' ? user.id : null;
 
@@ -174,103 +162,10 @@ export default function LessonViewerScreen() {
     checkLocalFile();
   }, [fetchReactions, fetchProgress, checkLocalFile]);
 
-  // ─── Video player setup ──────────────────────────────────────────────────────
-  const resolvedUrl = localUri ?? (videoUrl || undefined);
+  // ─── Video URL ───────────────────────────────────────────────────────────────
+  const resolvedUrl = localUri ?? (videoUrl || null);
 
-  const player = useVideoPlayer(
-    resolvedUrl ? { uri: resolvedUrl } : null,
-    (p) => {
-      p.loop = false;
-    }
-  );
-
-  // ── Player events: track play state + current time + duration ────────────────
-  useEffect(() => {
-    if (!player) return;
-    player.timeUpdateEventInterval = 0.5;
-
-    const playSub = player.addListener('playingChange', (e: { isPlaying: boolean }) => {
-      setIsPlaying(e.isPlaying);
-    });
-    const timeSub = player.addListener('timeUpdate', (e: { currentTime: number }) => {
-      setCurrentTimeDisplay(e.currentTime);
-      const d = player.duration;
-      if (d > 0) setDuration(d);
-    });
-    const statusSub = player.addListener('statusChange', () => {
-      const d = player.duration;
-      if (d > 0) setDuration(d);
-    });
-    return () => {
-      playSub.remove();
-      timeSub.remove();
-      statusSub.remove();
-    };
-  }, [player]);
-
-  // Seek to saved position — use absolute setter (currentTime is settable in expo-video)
-  useEffect(() => {
-    if (!progressLoaded || !player || savedPosition < 3) return;
-    try { player.currentTime = savedPosition; } catch {}
-  }, [progressLoaded, savedPosition]); // eslint-disable-line
-
-  // Auto-hide controls — only when playing; stay visible when paused
-  const resetControlsTimer = useCallback(() => {
-    if (controlsTimer.current) clearTimeout(controlsTimer.current);
-    setControlsVisible(true);
-    controlsTimer.current = setTimeout(() => {
-      // Don't hide if paused
-      if (player?.playing) setControlsVisible(false);
-    }, 3500);
-  }, [player]);
-
-  useEffect(() => {
-    resetControlsTimer();
-    return () => { if (controlsTimer.current) clearTimeout(controlsTimer.current); };
-  }, []); // eslint-disable-line
-
-  const toggleControls = () => {
-    if (controlsVisible) {
-      setControlsVisible(false);
-      if (controlsTimer.current) clearTimeout(controlsTimer.current);
-    } else {
-      resetControlsTimer();
-    }
-  };
-
-  const togglePlayPause = () => {
-    if (!player) return;
-    // Use player.playing directly — never rely on stale React state
-    if (player.playing) {
-      player.pause();
-      setIsPlaying(false);          // optimistic update
-      setControlsVisible(true);    // keep controls shown while paused
-      if (controlsTimer.current) clearTimeout(controlsTimer.current);
-    } else {
-      player.play();
-      setIsPlaying(true);
-      resetControlsTimer();
-    }
-  };
-
-  const handleSeekTouch = (locationX: number) => {
-    if (!player || duration <= 0) return;
-    const pct = Math.max(0, Math.min(1, locationX / seekBarWidth));
-    try { player.currentTime = pct * duration; } catch {}
-    resetControlsTimer();
-  };
-
-  const handlePiP = async () => {
-    if (!playerRef.current || !pipSupported) return;
-    try { await playerRef.current.enterPictureInPicture(); } catch {}
-  };
-
-  const handleFullscreen = async () => {
-    if (!playerRef.current) return;
-    try { await playerRef.current.enterFullscreen(); } catch {}
-  };
-
-  // ─── Save progress periodically ─────────────────────────────────────────────
+  // ─── Save progress (called by VideoPlayer every 5 s) ─────────────────────────
   const saveProgress = useCallback(async (pos: number) => {
     try {
       await AsyncStorage.setItem(progressKey(lessonId), String(pos));
@@ -284,24 +179,8 @@ export default function LessonViewerScreen() {
     } catch {}
   }, [lessonId, studentId]);
 
-  useEffect(() => {
-    if (!player || !isVideoLesson) return;
-    progressTimer.current = setInterval(async () => {
-      try {
-        const pos = player.currentTime ?? 0;
-        if (pos > 0) await saveProgress(pos);
-      } catch {}
-    }, 5000);
-    return () => {
-      if (progressTimer.current) clearInterval(progressTimer.current);
-      // Pause + save on unmount (navigation away)
-      try {
-        player.pause();
-        const pos = player.currentTime ?? 0;
-        if (pos > 0) saveProgress(pos);
-      } catch {}
-    };
-  }, [player, isVideoLesson, saveProgress]);
+  // VideoPlayer component handles its own save-on-interval + save-on-unmount
+  // via onSaveProgress prop — nothing needed here.
 
   // ─── React (like / dislike) ─────────────────────────────────────────────────
   const handleReact = async (reaction: 'like' | 'dislike', feedback?: string) => {
@@ -459,91 +338,15 @@ export default function LessonViewerScreen() {
   // ─── Header: video + lesson info + action bar ────────────────────────────────
   const renderHeader = () => (
     <View>
-      {/* ── Video player ── */}
+      {/* ── Video player (react-native-video) ── */}
       {isVideoLesson && resolvedUrl ? (
-        <TouchableWithoutFeedback onPress={toggleControls}>
-          <View style={[S.videoWrap, { height: VIDEO_H }]}>
-            {/* Player surface — no native controls → no Cast button */}
-            <VideoView
-              ref={playerRef}
-              player={player}
-              style={S.video}
-              contentFit="contain"
-              allowsFullscreen={false}
-              allowsPictureInPicture={pipSupported}
-              nativeControls={false}
-            />
-
-            {/* ── Custom controls overlay ── */}
-            {controlsVisible && (
-              <View style={S.ctrlOverlay}>
-                {/* Bottom scrim */}
-                <View style={S.ctrlScrimBottom} />
-
-                {/* Center: play / pause */}
-                <TouchableOpacity onPress={togglePlayPause} style={S.ctrlCenter} activeOpacity={0.8}>
-                  <View style={S.ctrlPlayBubble}>
-                    <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#fff" />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Bottom bar */}
-                <View style={S.ctrlBar}>
-                  {/* Current time */}
-                  <Text style={S.ctrlTime}>{fmt(currentTimeDisplay)}</Text>
-
-                  {/* Seek bar */}
-                  <View
-                    style={S.seekBarOuter}
-                    onLayout={e => setSeekBarWidth(e.nativeEvent.layout.width)}
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
-                    onResponderGrant={e => handleSeekTouch(e.nativeEvent.locationX)}
-                    onResponderMove={e => handleSeekTouch(e.nativeEvent.locationX)}
-                  >
-                    <View style={S.seekBarTrack}>
-                      <View
-                        style={[
-                          S.seekBarFill,
-                          { width: duration > 0 ? `${(currentTimeDisplay / duration) * 100}%` : '0%' },
-                        ]}
-                      />
-                    </View>
-                    <View
-                      style={[
-                        S.seekThumb,
-                        { left: duration > 0 ? `${(currentTimeDisplay / duration) * 100}%` : '0%' },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Duration */}
-                  <Text style={S.ctrlTime}>{fmt(duration)}</Text>
-
-                  {/* PiP */}
-                  {pipSupported && (
-                    <TouchableOpacity onPress={handlePiP} style={S.ctrlIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="tv-outline" size={20} color="#fff" />
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Fullscreen */}
-                  <TouchableOpacity onPress={handleFullscreen} style={S.ctrlIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="expand-outline" size={20} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Local badge */}
-            {localUri && (
-              <View style={S.localBadge}>
-                <Ionicons name="cloud-offline" size={12} color="#fff" />
-                <Text style={{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 11 * fs }}>محفوظ</Text>
-              </View>
-            )}
-          </View>
-        </TouchableWithoutFeedback>
+        <VideoPlayer
+          source={resolvedUrl}
+          savedPosition={savedPosition}
+          onSaveProgress={saveProgress}
+          height={VIDEO_H}
+          localBadge={!!localUri}
+        />
       ) : isVideoLesson && !resolvedUrl ? (
         <View style={[S.videoWrap, { height: VIDEO_H, backgroundColor: '#0a1628', alignItems: 'center', justifyContent: 'center' }]}>
           <Ionicons name="videocam-off-outline" size={40} color="rgba(255,255,255,0.3)" />
@@ -749,62 +552,8 @@ const S = StyleSheet.create({
   navTitle: { color: '#fff', flex: 1, textAlign: 'center' },
 
   // Video
-  videoWrap: { width: '100%', backgroundColor: '#000' },
-  video: { width: '100%', height: '100%' },
-  localBadge: {
-    position: 'absolute', top: 10, left: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
-  },
-
-  // Custom video controls overlay
-  ctrlOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-  },
-  ctrlScrimBottom: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: 80,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  ctrlCenter: {
-    position: 'absolute',
-    top: 0, bottom: 0, left: 0, right: 0,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ctrlPlayBubble: {
-    width: 58, height: 58, borderRadius: 29,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ctrlBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingBottom: 10, paddingTop: 8, gap: 8,
-  },
-  ctrlTime: {
-    color: '#fff', fontFamily: 'Tajawal_500Medium', fontSize: 12,
-    minWidth: 38, textAlign: 'center',
-  },
-  seekBarOuter: {
-    flex: 1, height: 28, justifyContent: 'center',
-    position: 'relative',
-  },
-  seekBarTrack: {
-    height: 3, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    overflow: 'visible',
-  },
-  seekBarFill: {
-    height: '100%', borderRadius: 2,
-    backgroundColor: '#D4A843',
-  },
-  seekThumb: {
-    position: 'absolute', top: -5,
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#D4A843',
-    marginLeft: -7,
-  },
-  ctrlIconBtn: { padding: 4 },
+  // Placeholder when no video URL
+  videoWrap: { width: '100%', backgroundColor: '#0a1628', alignItems: 'center', justifyContent: 'center' },
 
   // Lesson title
   titleRow: {
