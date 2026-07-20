@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -68,10 +70,12 @@ export default function CourseDetailScreen() {
   const [orderedLessons, setOrderedLessons] = useState<Lesson[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
   // Editable settings state (synced from course on open)
   const [editSubjectId, setEditSubjectId] = useState<number | null>(null);
   const [editGradeLevel, setEditGradeLevel] = useState<string | null>(null);
   const [editPublished, setEditPublished] = useState(false);
+  const [editThumbnailUrl, setEditThumbnailUrl] = useState<string | null>(null);
 
   const { data: course, isLoading } = useGetCourse(courseId);
   const { data: subjects } = useGetSubjects();
@@ -135,7 +139,37 @@ export default function CourseDetailScreen() {
     setEditSubjectId((course as any)?.subjectId ?? null);
     setEditGradeLevel((course as any)?.gradeLevel ?? null);
     setEditPublished((course as any)?.isPublished ?? false);
+    setEditThumbnailUrl((course as any)?.thumbnailUrl ?? null);
     setSettingsOpen(true);
+  };
+
+  const pickThumbnail = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('الإذن مطلوب', 'يرجى السماح بالوصول إلى الصور'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [16, 9],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const name = asset.uri.split('/').pop() ?? 'thumbnail.jpg';
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const base = domain ? `https://${domain}` : '';
+    setUploadingImg(true);
+    try {
+      const form = new FormData();
+      form.append('file', { uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg' } as any);
+      const res = await fetch(`${base}/api/messages/upload`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error('فشل رفع الصورة');
+      const { url } = await res.json();
+      setEditThumbnailUrl(url);
+    } catch (e: any) {
+      Alert.alert('خطأ', e.message);
+    } finally {
+      setUploadingImg(false);
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -153,6 +187,7 @@ export default function CourseDetailScreen() {
           subjectId: editSubjectId,
           gradeLevel: editGradeLevel,
           isPublished: editPublished,
+          thumbnailUrl: editThumbnailUrl,
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'فشل الحفظ');
@@ -432,6 +467,40 @@ export default function CourseDetailScreen() {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 20, gap: 24 }} showsVerticalScrollIndicator={false}>
+            {/* ── Thumbnail ── */}
+            <View style={{ gap: 10 }}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>صورة الدورة</Text>
+              <TouchableOpacity
+                onPress={pickThumbnail}
+                disabled={uploadingImg}
+                style={[styles.imgPicker, { borderColor: colors.border, backgroundColor: colors.card }]}
+              >
+                {editThumbnailUrl ? (
+                  <Image source={{ uri: editThumbnailUrl }} style={styles.imgPreview} resizeMode="cover" />
+                ) : (
+                  <View style={styles.imgPlaceholder}>
+                    <Ionicons name="image-outline" size={32} color={colors.mutedForeground} />
+                    <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>
+                      {uploadingImg ? 'جاري الرفع...' : 'اضغط لاختيار صورة'}
+                    </Text>
+                  </View>
+                )}
+                {editThumbnailUrl && (
+                  <View style={styles.imgOverlay}>
+                    <Ionicons name="camera-outline" size={20} color="#fff" />
+                    <Text style={{ color: '#fff', fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }}>
+                      {uploadingImg ? 'جاري الرفع...' : 'تغيير الصورة'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {editThumbnailUrl && (
+                <TouchableOpacity onPress={() => setEditThumbnailUrl(null)} style={{ alignSelf: 'flex-end' }}>
+                  <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>حذف الصورة</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             {/* ── Publish toggle ── */}
             <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={{ flex: 1 }}>
@@ -645,5 +714,27 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     marginTop: 8,
+  },
+  imgPicker: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+  },
+  imgPreview: { width: '100%', height: '100%' },
+  imgPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  imgOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
   },
 });

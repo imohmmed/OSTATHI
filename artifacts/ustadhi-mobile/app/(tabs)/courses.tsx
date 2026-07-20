@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
   Modal,
   Platform,
   RefreshControl,
@@ -12,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,11 +45,11 @@ function useCreateCourseForTeacher() {
   const base = domain ? `https://${domain}` : '';
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ teacherId, title, subjectId, description }: { teacherId: number; title: string; subjectId: number; description?: string }) => {
+    mutationFn: async ({ teacherId, title, subjectId, description, thumbnailUrl }: { teacherId: number; title: string; subjectId: number; description?: string; thumbnailUrl?: string }) => {
       const res = await fetch(`${base}/api/teachers/${teacherId}/courses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, subjectId, description }),
+        body: JSON.stringify({ title, subjectId, description, thumbnailUrl }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -77,6 +79,8 @@ function TeacherCourses() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newSubjectId, setNewSubjectId] = useState<number | null>(null);
+  const [newThumbnailUrl, setNewThumbnailUrl] = useState<string | null>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
 
   const { data: courses, isLoading, refetch } = useGetCourses({ teacherId: user!.id });
@@ -121,14 +125,49 @@ function TeacherCourses() {
     );
   };
 
+  const pickThumbnail = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('الإذن مطلوب', 'يرجى السماح بالوصول إلى الصور'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [16, 9],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const name = asset.uri.split('/').pop() ?? 'thumbnail.jpg';
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const base = domain ? `https://${domain}` : '';
+    setUploadingImg(true);
+    try {
+      const form = new FormData();
+      form.append('file', { uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg' } as any);
+      const res = await fetch(`${base}/api/messages/upload`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error('فشل رفع الصورة');
+      const { url } = await res.json();
+      setNewThumbnailUrl(url);
+    } catch (e: any) {
+      Alert.alert('خطأ', e.message);
+    } finally {
+      setUploadingImg(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!newTitle.trim()) { Alert.alert('تنبيه', 'يرجى إدخال عنوان الكورس'); return; }
     if (!newSubjectId) { Alert.alert('تنبيه', 'يرجى اختيار المادة'); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const course = await createCourse.mutateAsync({ teacherId: user!.id, title: newTitle.trim(), subjectId: newSubjectId, description: newDesc.trim() || undefined });
+      const course = await createCourse.mutateAsync({
+        teacherId: user!.id,
+        title: newTitle.trim(),
+        subjectId: newSubjectId,
+        description: newDesc.trim() || undefined,
+        thumbnailUrl: newThumbnailUrl || undefined,
+      });
       setShowCreateModal(false);
-      setNewTitle(''); setNewDesc(''); setNewSubjectId(null);
+      setNewTitle(''); setNewDesc(''); setNewSubjectId(null); setNewThumbnailUrl(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push(`/course/${course.id}`);
     } catch (e: any) {
@@ -237,6 +276,40 @@ function TeacherCourses() {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} showsVerticalScrollIndicator={false}>
+            {/* ── Thumbnail picker ── */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }]}>صورة الكورس</Text>
+              <TouchableOpacity
+                onPress={pickThumbnail}
+                disabled={uploadingImg}
+                style={[cStyles.imgPicker, { borderColor: colors.border, backgroundColor: colors.card }]}
+              >
+                {newThumbnailUrl ? (
+                  <Image source={{ uri: newThumbnailUrl }} style={cStyles.imgPreview} resizeMode="cover" />
+                ) : (
+                  <View style={cStyles.imgPlaceholder}>
+                    <Ionicons name="image-outline" size={32} color={colors.mutedForeground} />
+                    <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>
+                      {uploadingImg ? 'جاري الرفع...' : 'اضغط لاختيار صورة (16:9)'}
+                    </Text>
+                  </View>
+                )}
+                {newThumbnailUrl && (
+                  <View style={cStyles.imgOverlay}>
+                    <Ionicons name="camera-outline" size={20} color="#fff" />
+                    <Text style={{ color: '#fff', fontFamily: 'Tajawal_500Medium', fontSize: 13 * fs }}>
+                      {uploadingImg ? 'جاري الرفع...' : 'تغيير الصورة'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {newThumbnailUrl && (
+                <TouchableOpacity onPress={() => setNewThumbnailUrl(null)} style={{ alignSelf: 'flex-end' }}>
+                  <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>حذف الصورة</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             <View style={styles.fieldGroup}>
               <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }]}>عنوان الكورس *</Text>
               <TextInput
@@ -520,4 +593,29 @@ const styles = StyleSheet.create({
   subjectsGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   subjectPill: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   createBtn: { paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+});
+
+const cStyles = StyleSheet.create({
+  imgPicker: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+  },
+  imgPreview: { width: '100%', height: '100%' },
+  imgPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  imgOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
 });
