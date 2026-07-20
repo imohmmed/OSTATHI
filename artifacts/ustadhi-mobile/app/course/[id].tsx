@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -73,6 +74,7 @@ export default function CourseDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingImg, setUploadingImg] = useState(false);
   // Editable settings state (synced from course on open)
+  const [editTitle, setEditTitle] = useState('');
   const [editSubjectId, setEditSubjectId] = useState<number | null>(null);
   const [editGradeLevel, setEditGradeLevel] = useState<string | null>(null);
   const [editPublished, setEditPublished] = useState(false);
@@ -146,6 +148,7 @@ export default function CourseDetailScreen() {
   };
 
   const openSettings = () => {
+    setEditTitle(course?.title ?? '');
     setEditSubjectId((course as any)?.subjectId ?? null);
     setEditGradeLevel((course as any)?.gradeLevel ?? null);
     setEditPublished((course as any)?.isPublished ?? false);
@@ -183,6 +186,7 @@ export default function CourseDetailScreen() {
   };
 
   const handleSaveSettings = async () => {
+    if (!editTitle.trim()) { Alert.alert('تنبيه', 'اسم الدورة مطلوب'); return; }
     if (!editSubjectId) { Alert.alert('تنبيه', 'يرجى اختيار المادة'); return; }
     if (!editGradeLevel) { Alert.alert('تنبيه', 'يرجى اختيار الصف'); return; }
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -194,6 +198,7 @@ export default function CourseDetailScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teacherId: user!.id,
+          title: editTitle.trim(),
           subjectId: editSubjectId,
           gradeLevel: editGradeLevel,
           isPublished: editPublished,
@@ -541,6 +546,31 @@ export default function CourseDetailScreen() {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 20, gap: 24 }} showsVerticalScrollIndicator={false}>
+            {/* ── Course title ── */}
+            <View style={{ gap: 8 }}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>
+                اسم الدورة *
+              </Text>
+              <TextInput
+                value={editTitle}
+                onChangeText={setEditTitle}
+                placeholder="مثال: دورة الرياضيات للسادس العلمي"
+                placeholderTextColor={colors.mutedForeground}
+                style={[{
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  color: colors.foreground,
+                  fontFamily: 'Tajawal_400Regular',
+                  fontSize: 14 * fs,
+                  textAlign: 'right',
+                }]}
+              />
+            </View>
+
             {/* ── Thumbnail ── */}
             <View style={{ gap: 10 }}>
               <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>صورة الدورة</Text>
