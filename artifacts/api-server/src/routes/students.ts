@@ -217,6 +217,7 @@ router.get("/students/:id/activity-summary", async (req, res): Promise<void> => 
     teacherName: string;
     lessonsOpened: number;
     lessonsCompleted: number;
+    lastAccessAt: Date | null;
     lessons: typeof progressRows;
   }> = {};
 
@@ -228,19 +229,59 @@ router.get("/students/:id/activity-summary", async (req, res): Promise<void> => 
         teacherName: row.teacherName,
         lessonsOpened: 0,
         lessonsCompleted: 0,
+        lastAccessAt: null,
         lessons: [],
       };
     }
     courseMap[row.courseId].lessonsOpened++;
     if (row.completed) courseMap[row.courseId].lessonsCompleted++;
+    // Track last access per course
+    const rowDate = new Date(row.updatedAt);
+    if (!courseMap[row.courseId].lastAccessAt || rowDate > courseMap[row.courseId].lastAccessAt!) {
+      courseMap[row.courseId].lastAccessAt = rowDate;
+    }
     courseMap[row.courseId].lessons.push(row);
   }
+
+  // Fetch total lessons per course (all published lessons)
+  const activeCourseIds = Object.keys(courseMap).map(Number);
+  let totalLessonsPerCourse: Record<number, { total: number; byType: Record<string, number> }> = {};
+
+  if (activeCourseIds.length) {
+    const allLessons = await db
+      .select({ courseId: lessonsTable.courseId, type: lessonsTable.type })
+      .from(lessonsTable)
+      .where(inArray(lessonsTable.courseId, activeCourseIds));
+
+    for (const l of allLessons) {
+      if (!totalLessonsPerCourse[l.courseId]) {
+        totalLessonsPerCourse[l.courseId] = { total: 0, byType: {} };
+      }
+      totalLessonsPerCourse[l.courseId].total++;
+      totalLessonsPerCourse[l.courseId].byType[l.type] =
+        (totalLessonsPerCourse[l.courseId].byType[l.type] ?? 0) + 1;
+    }
+  }
+
+  const courseActivity = Object.values(courseMap).map(ca => ({
+    ...ca,
+    totalLessons: totalLessonsPerCourse[ca.courseId]?.total ?? 0,
+    lessonsByType: totalLessonsPerCourse[ca.courseId]?.byType ?? {},
+    openedByType: ca.lessons.reduce<Record<string, number>>((acc, l) => {
+      acc[l.lessonType] = (acc[l.lessonType] ?? 0) + 1;
+      return acc;
+    }, {}),
+    completedByType: ca.lessons.filter(l => l.completed).reduce<Record<string, number>>((acc, l) => {
+      acc[l.lessonType] = (acc[l.lessonType] ?? 0) + 1;
+      return acc;
+    }, {}),
+  }));
 
   res.json({
     student,
     stats: { totalOpened, totalCompleted, lastActivity },
-    courseActivity: Object.values(courseMap),
-    recentActivity: progressRows.slice(0, 20), // last 20 interactions
+    courseActivity,
+    recentActivity: progressRows.slice(0, 20),
   });
 });
 

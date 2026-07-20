@@ -93,14 +93,7 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen name="all-courses" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="student/[id]"
-        options={{
-          title: 'تفاصيل الطالب',
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-        }}
-      />
+      <Stack.Screen name="student/[id]" options={{ headerShown: false }} />
       <Stack.Screen
         name="conversation/[teacherId]"
         options={{
