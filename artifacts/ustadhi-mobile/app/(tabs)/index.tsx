@@ -345,6 +345,9 @@ function StudentHome() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>دوراتنا</Text>
+            <TouchableOpacity onPress={() => router.push('/all-courses' as any)}>
+              <Text style={[styles.seeAll, { color: colors.primary, fontFamily: 'Tajawal_500Medium' }]}>عرض الكل</Text>
+            </TouchableOpacity>
           </View>
           {cl ? (
             <FlatList horizontal inverted data={[1, 2, 3]} keyExtractor={String} renderItem={() => <SkeletonCard />} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList} />
