@@ -7,7 +7,7 @@ import {
   subjectsTable,
   teachersTable,
 } from "@workspace/db";
-import { eq, ilike, and, or } from "drizzle-orm";
+import { eq, ilike, and, or, inArray, sql } from "drizzle-orm";
 import { requireAdmin } from "./admin";
 
 const router: IRouter = Router();
@@ -95,30 +95,60 @@ router.delete("/students/:id", requireAdmin, async (req, res): Promise<void> => 
   res.sendStatus(204);
 });
 
-// Student courses
+// Student courses — returns:
+//   1. Courses explicitly enrolled (studentCoursesTable)
+//   2. Published courses whose gradeLevel matches the student's gradeLevel
+// Deduplication handled in JS.
 router.get("/students/:id/courses", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const assignments = await db
-    .select({
-      id: coursesTable.id,
-      title: coursesTable.title,
-      description: coursesTable.description,
-      thumbnailUrl: coursesTable.thumbnailUrl,
-      subjectId: coursesTable.subjectId,
-      subjectName: subjectsTable.name,
-      teacherId: coursesTable.teacherId,
-      teacherName: teachersTable.fullName,
-      isPublished: coursesTable.isPublished,
-      createdAt: coursesTable.createdAt,
-    })
+
+  // Fetch student to get their grade level
+  const [student] = await db.select({ gradeLevel: studentsTable.gradeLevel })
+    .from(studentsTable).where(eq(studentsTable.id, id));
+
+  if (!student) { res.status(404).json({ error: "Student not found" }); return; }
+
+  const courseFields = {
+    id: coursesTable.id,
+    title: coursesTable.title,
+    description: coursesTable.description,
+    thumbnailUrl: coursesTable.thumbnailUrl,
+    subjectId: coursesTable.subjectId,
+    subjectName: subjectsTable.name,
+    gradeLevel: coursesTable.gradeLevel,
+    teacherId: coursesTable.teacherId,
+    teacherName: teachersTable.fullName,
+    isPublished: coursesTable.isPublished,
+    createdAt: coursesTable.createdAt,
+  };
+
+  // 1. Explicitly enrolled courses
+  const enrolled = await db.select(courseFields)
     .from(studentCoursesTable)
     .innerJoin(coursesTable, eq(studentCoursesTable.courseId, coursesTable.id))
     .leftJoin(subjectsTable, eq(coursesTable.subjectId, subjectsTable.id))
     .leftJoin(teachersTable, eq(coursesTable.teacherId, teachersTable.id))
     .where(eq(studentCoursesTable.studentId, id));
 
-  res.json(assignments.map(c => ({ ...c, lessonsCount: 0, studentsCount: 0 })));
+  // 2. Published courses matching student's grade level
+  const byGrade = student.gradeLevel
+    ? await db.select(courseFields)
+        .from(coursesTable)
+        .leftJoin(subjectsTable, eq(coursesTable.subjectId, subjectsTable.id))
+        .leftJoin(teachersTable, eq(coursesTable.teacherId, teachersTable.id))
+        .where(and(eq(coursesTable.isPublished, true), eq(coursesTable.gradeLevel, student.gradeLevel)))
+    : [];
+
+  // Deduplicate by course id
+  const seen = new Set<number>();
+  const merged = [...enrolled, ...byGrade].filter(c => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+
+  res.json(merged.map(c => ({ ...c, lessonsCount: 0, studentsCount: 0 })));
 });
 
 router.post("/students/:id/courses", requireAdmin, async (req, res): Promise<void> => {
