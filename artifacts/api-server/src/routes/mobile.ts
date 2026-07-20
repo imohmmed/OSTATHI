@@ -319,6 +319,19 @@ router.post("/mobile/admin/teachers", requireMobileAdmin, async (req, res): Prom
   }
 });
 
+// ── Mobile Admin: ربط أستاذ موجود بمادة ──────────────
+router.post("/mobile/admin/subjects/:id/link-teacher", requireMobileAdmin, async (req, res): Promise<void> => {
+  const subjectId = parseInt(req.params.id, 10);
+  const { teacherId } = req.body ?? {};
+  if (!teacherId) { res.status(400).json({ error: "teacherId مطلوب" }); return; }
+  try {
+    await db.insert(teacherSubjectsTable).values({ teacherId: parseInt(teacherId, 10), subjectId }).onConflictDoNothing();
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "فشل الربط" });
+  }
+});
+
 // ── Mobile Admin: تفاصيل مادة مع أساتذتها ───────────
 router.get("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);

@@ -10,7 +10,7 @@ import {
   View,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -40,7 +40,13 @@ function useStudentAdminDetail(id: number, adminToken: string | undefined) {
   });
 }
 
-const GRADE_LEVELS = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'];
+const GRADE_LEVELS = [
+  'سادس ابتدائي',
+  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
+  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
+  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
+  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+];
 
 export default function AdminStudentDetailScreen() {
   const c = useColors();
@@ -51,7 +57,6 @@ export default function AdminStudentDetailScreen() {
   const fs = fontScale;
   const { id } = useLocalSearchParams<{ id: string }>();
   const studentId = parseInt(id, 10);
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const adminToken = (user as any)?.adminToken;
   const qc = useQueryClient();
 
@@ -123,15 +128,14 @@ export default function AdminStudentDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
+      <Stack.Screen options={{ title: student.fullName, headerBackTitle: 'رجوع' }} />
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 12, borderBottomColor: c.border }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-forward" size={24} color={c.foreground} />
-        </TouchableOpacity>
+      <View style={[styles.header, { paddingTop: 12, borderBottomColor: c.border }]}>
+        <View style={{ width: 36 }} />
         <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 18 * fs, flex: 1, textAlign: 'center' }]}>
           {student.fullName}
         </Text>
-        <TouchableOpacity onPress={startEdit}>
+        <TouchableOpacity onPress={startEdit} style={{ width: 36, alignItems: 'center' }}>
           <Ionicons name="create-outline" size={22} color={c.primary} />
         </TouchableOpacity>
       </View>

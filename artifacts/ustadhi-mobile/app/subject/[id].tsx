@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -78,7 +78,13 @@ function useCreateTeacher(adminToken: string | undefined) {
   });
 }
 
-const GRADE_LEVELS = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'];
+const GRADE_LEVELS = [
+  'سادس ابتدائي',
+  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
+  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
+  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
+  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+];
 
 export default function SubjectDetailScreen() {
   const c = useColors();
@@ -92,12 +98,48 @@ export default function SubjectDetailScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const [showAddTeacher, setShowAddTeacher] = useState(false);
+  const [showLinkTeacher, setShowLinkTeacher] = useState(false);
   const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', bio: '', gradeLevel: '' });
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+  const [linkSearch, setLinkSearch] = useState('');
 
   const adminToken = (user as any)?.adminToken;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
   const { data: subject, isLoading, refetch } = useSubjectDetail(subjectId, adminToken);
   const createTeacher = useCreateTeacher(adminToken);
+
+  // Fetch all teachers for link modal
+  const { data: allTeachers = [] } = useQuery<{ id: number; fullName: string; username: string }[]>({
+    queryKey: ['all-teachers'],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/teachers`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: showLinkTeacher,
+  });
+
+  const filteredTeachers = allTeachers.filter(t =>
+    t.fullName.includes(linkSearch) || t.username.includes(linkSearch)
+  );
+
+  const handleLinkTeacher = async (teacherId: number) => {
+    try {
+      const res = await fetch(`${base}/api/mobile/admin/subjects/${subjectId}/link-teacher`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
+        body: JSON.stringify({ teacherId }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'فشل');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowLinkTeacher(false);
+      setLinkSearch('');
+      refetch();
+    } catch (e: any) {
+      Alert.alert('خطأ', e.message);
+    }
+  };
 
   const handleAddTeacher = async () => {
     if (!form.fullName || !form.username || !form.password) {
@@ -130,20 +172,28 @@ export default function SubjectDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
+      <Stack.Screen options={{ title: subject?.name ?? decodeURIComponent(name ?? ''), headerBackTitle: 'رجوع' }} />
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 12, borderBottomColor: c.border, backgroundColor: c.background }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-forward" size={24} color={c.foreground} />
-        </TouchableOpacity>
-        <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 18 * fs, flex: 1, textAlign: 'center' }]}>
+      <View style={[styles.header, { paddingTop: 12, borderBottomColor: c.border, backgroundColor: c.background }]}>
+        <View style={{ width: 36 }} />
+        <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs, flex: 1, textAlign: 'center' }]}>
           {subject?.name ?? decodeURIComponent(name ?? '')}
         </Text>
-        <TouchableOpacity
-          onPress={() => setShowAddTeacher(true)}
-          style={[styles.addBtn, { backgroundColor: c.primary }]}
-        >
-          <Ionicons name="add" size={18} color={c.primaryForeground} />
-        </TouchableOpacity>
+        {/* Action buttons */}
+        <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setShowAddTeacher(true)}
+            style={[styles.addBtn, { backgroundColor: c.primary }]}
+          >
+            <Ionicons name="add" size={18} color={c.primaryForeground} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowLinkTeacher(true)}
+            style={[styles.addBtn, { backgroundColor: `${c.primary}20`, borderWidth: 1, borderColor: c.primary }]}
+          >
+            <Ionicons name="link" size={16} color={c.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Subject info banner */}
@@ -297,6 +347,84 @@ export default function SubjectDetailScreen() {
               </View>
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Link Existing Teacher Modal */}
+      <Modal visible={showLinkTeacher} animationType="slide" presentationStyle="pageSheet">
+        <View style={[styles.modal, { backgroundColor: c.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
+            <TouchableOpacity onPress={() => { setShowLinkTeacher(false); setLinkSearch(''); }}>
+              <Text style={[{ color: c.destructive, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>إلغاء</Text>
+            </TouchableOpacity>
+            <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>ربط أستاذ موجود</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Search */}
+          <View style={[{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8, margin: 16, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }]}>
+            <Ionicons name="search" size={16} color={c.mutedForeground} />
+            <TextInput
+              value={linkSearch}
+              onChangeText={setLinkSearch}
+              placeholder="بحث عن أستاذ..."
+              placeholderTextColor={c.mutedForeground}
+              textAlign="right"
+              style={[{ flex: 1, color: c.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}
+            />
+          </View>
+
+          <FlatList
+            data={filteredTeachers}
+            keyExtractor={(t) => String(t.id)}
+            renderItem={({ item }) => {
+              const alreadyLinked = subject?.teachers.some(t => t.id === item.id) ?? false;
+              return (
+                <TouchableOpacity
+                  onPress={() => !alreadyLinked && handleLinkTeacher(item.id)}
+                  activeOpacity={alreadyLinked ? 1 : 0.75}
+                  style={[{
+                    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
+                    padding: 14, marginHorizontal: 16, marginBottom: 8,
+                    borderRadius: 20, borderWidth: 1,
+                    backgroundColor: alreadyLinked ? `${c.primary}10` : c.card,
+                    borderColor: alreadyLinked ? c.primary : c.border,
+                  }]}
+                >
+                  <View style={[styles.avatar, { backgroundColor: alreadyLinked ? c.primary : c.muted }]}>
+                    <Text style={[{ color: alreadyLinked ? c.primaryForeground : c.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 18 }]}>
+                      {item.fullName[0]}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs, textAlign: 'right' }]}>
+                      {item.fullName}
+                    </Text>
+                    <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]}>
+                      @{item.username}
+                    </Text>
+                  </View>
+                  {alreadyLinked ? (
+                    <View style={[{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: `${c.primary}20` }]}>
+                      <Text style={[{ color: c.primary, fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }]}>مرتبط ✓</Text>
+                    </View>
+                  ) : (
+                    <Ionicons name="link-outline" size={20} color={c.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={{ alignItems: 'center', padding: 40, gap: 8 }}>
+                <Ionicons name="person-outline" size={36} color={c.mutedForeground} />
+                <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
+                  {linkSearch ? 'لا توجد نتائج' : 'لا يوجد أساتذة بعد'}
+                </Text>
+              </View>
+            }
+            contentContainerStyle={{ paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+          />
         </View>
       </Modal>
     </View>

@@ -65,7 +65,13 @@ function useAdminStudents(adminToken: string | undefined) {
   });
 }
 
-const GRADE_LEVELS = ['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر','الحادي عشر','الثاني عشر'];
+const GRADE_LEVELS = [
+  'سادس ابتدائي',
+  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
+  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
+  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
+  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+];
 
 function useCreateStudent(adminToken: string | undefined) {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
