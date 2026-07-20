@@ -142,16 +142,17 @@ export default function LessonEditScreen() {
 
   // ── Quiz fetch / create / delete ───────────────────────────────
   const fetchQuizzes = useCallback(async () => {
-    if (!QUIZ_TYPES.includes(lesson?.type ?? '')) return;
     setQuizLoading(true);
     try {
       const r = await fetch(`${getBase()}/lessons/${lessonId}/quizzes`);
       if (r.ok) setQuizQuestions(await r.json());
     } catch {}
     setQuizLoading(false);
-  }, [lessonId, lesson?.type]);
+  }, [lessonId]);
 
-  useEffect(() => { fetchQuizzes(); }, [fetchQuizzes]);
+  useEffect(() => {
+    if (QUIZ_TYPES.includes(lesson?.type ?? '')) fetchQuizzes();
+  }, [lesson?.type, fetchQuizzes]);
 
   const handleAddQuestion = async () => {
     if (!qText.trim() || !qCorrect.trim()) {
@@ -178,12 +179,13 @@ export default function LessonEditScreen() {
       });
       if (r.ok) {
         setQText(''); setQOptions(''); setQCorrect(''); setQExplain(''); setQPoints('1');
+        Alert.alert('✅ تمت الإضافة', 'تم حفظ السؤال بنجاح');
         fetchQuizzes();
       } else {
         const err = await r.json().catch(() => ({}));
         Alert.alert('خطأ', err.error ?? 'فشل الحفظ');
       }
-    } catch { Alert.alert('خطأ', 'تحقق من الاتصال'); }
+    } catch { Alert.alert('خطأ', 'تحقق من الاتصال بالإنترنت'); }
     setQSaving(false);
   };
 
@@ -455,6 +457,213 @@ export default function LessonEditScreen() {
             </View>
           )}
 
+          {/* ── Quiz Questions Management ─────────────────────────── */}
+          {QUIZ_TYPES.includes(type) && (
+            <View style={[S.qSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+
+              {/* Section header */}
+              <View style={S.qSecHeader}>
+                <View style={[S.qSecIcon, { backgroundColor: typeColor + '20' }]}>
+                  <Ionicons name="help-circle-outline" size={20} color={typeColor} />
+                </View>
+                <Text style={[S.qSecTitle, { color: colors.foreground, fontSize: 15 * fs }]}>
+                  أسئلة الاختبار
+                </Text>
+                <View style={[S.qBadge, { backgroundColor: typeColor + '18' }]}>
+                  <Text style={[{ color: typeColor, fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>
+                    {quizLoading ? '...' : `${quizQuestions.length} سؤال`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Existing questions list */}
+              {quizLoading ? (
+                <ActivityIndicator size="small" color={typeColor} style={{ marginVertical: 12 }} />
+              ) : quizQuestions.length > 0 ? (
+                <View style={[S.qList, { borderColor: colors.border, marginBottom: 12 }]}>
+                  {quizQuestions.map((q, i) => (
+                    <View key={q.id} style={[S.qRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
+                      <View style={[S.qNum, { backgroundColor: typeColor + '18' }]}>
+                        <Text style={{ color: typeColor, fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }}>{i + 1}</Text>
+                      </View>
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 13 * fs, textAlign: 'right', lineHeight: 20 }} numberOfLines={2}>
+                          {q.question}
+                        </Text>
+                        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="checkmark-circle" size={13} color="#22c55e" />
+                          <Text style={{ color: '#22c55e', fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }}>
+                            {q.correctAnswer}
+                          </Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }}>
+                            · {q.points ?? 1} نقطة
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteQuestion(q.id)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={[S.qDeleteBtn, { backgroundColor: '#ef444418' }]}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={[S.qEmpty, { borderColor: typeColor + '40', backgroundColor: typeColor + '08', marginBottom: 12 }]}>
+                  <Ionicons name="help-circle-outline" size={28} color={typeColor} style={{ opacity: 0.5 }} />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, textAlign: 'center' }}>
+                    لا توجد أسئلة بعد{'\n'}أضف أول سؤال من النموذج أدناه
+                  </Text>
+                </View>
+              )}
+
+              {/* ── Divider ── */}
+              <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: -16, marginBottom: 14 }} />
+              <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'right', marginBottom: 10 }}>
+                ➕ إضافة سؤال
+              </Text>
+
+              {/* Question type selector */}
+              <View style={S.qTypeRow}>
+                {([
+                  ['multiple_choice', 'اختيار متعدد'],
+                  ['true_false',      'صح / خطأ'],
+                  ['fill_blank',      'ملء الفراغ'],
+                ] as const).map(([val, label]) => (
+                  <TouchableOpacity
+                    key={val}
+                    onPress={() => { setQType(val); setQCorrect(''); setQOptions(''); }}
+                    style={[
+                      S.qTypeBtn,
+                      { borderColor: colors.border, backgroundColor: colors.background },
+                      qType === val && { borderColor: typeColor, backgroundColor: typeColor + '22' },
+                    ]}
+                  >
+                    <Text style={[S.qTypeBtnText, { color: qType === val ? typeColor : colors.mutedForeground, fontSize: 11 * fs }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Question text */}
+              <Text style={[S.qLabel, { color: colors.mutedForeground, fontSize: 12 * fs }]}>نص السؤال *</Text>
+              <TextInput
+                value={qText}
+                onChangeText={setQText}
+                placeholder="اكتب السؤال هنا..."
+                placeholderTextColor={colors.mutedForeground}
+                style={[S.qInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 14 * fs, minHeight: 56 }]}
+                textAlign="right"
+                multiline
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+
+              {/* MCQ options */}
+              {qType === 'multiple_choice' && (
+                <>
+                  <Text style={[S.qLabel, { color: colors.mutedForeground, fontSize: 12 * fs }]}>الخيارات (مفصولة بفاصلة) *</Text>
+                  <TextInput
+                    value={qOptions}
+                    onChangeText={setQOptions}
+                    placeholder="مثال: الرياض, جدة, مكة, الدمام"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[S.qInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 13 * fs }]}
+                    textAlign="right"
+                  />
+                </>
+              )}
+
+              {/* Correct answer */}
+              <Text style={[S.qLabel, { color: '#22c55e', fontSize: 12 * fs }]}>الإجابة الصحيحة *</Text>
+              {qType === 'true_false' ? (
+                <View style={S.tfBtns}>
+                  {['صح', 'خطأ'].map(v => (
+                    <TouchableOpacity
+                      key={v}
+                      onPress={() => setQCorrect(v)}
+                      style={[
+                        S.tfBtn,
+                        { borderColor: colors.border, backgroundColor: colors.background },
+                        qCorrect === v && { borderColor: '#22c55e', backgroundColor: '#22c55e18' },
+                      ]}
+                    >
+                      <Text style={{ color: qCorrect === v ? '#22c55e' : colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }}>
+                        {v === 'صح' ? '✅  صح' : '❌  خطأ'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <TextInput
+                  value={qCorrect}
+                  onChangeText={setQCorrect}
+                  placeholder="اكتب الإجابة الصحيحة..."
+                  placeholderTextColor="#22c55e80"
+                  style={[S.qInput, { backgroundColor: '#22c55e0a', borderColor: '#22c55e50', color: colors.foreground, fontSize: 13 * fs }]}
+                  textAlign="right"
+                />
+              )}
+
+              {/* Points */}
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
+                <Text style={[S.qLabel, { color: colors.mutedForeground, fontSize: 12 * fs, flex: 1, marginBottom: 0 }]}>
+                  عدد النقاط
+                </Text>
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => setQPoints(String(Math.max(1, parseInt(qPoints || '1') + 1)))}
+                    style={[S.qPointsBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  >
+                    <Ionicons name="add" size={16} color={colors.foreground} />
+                  </TouchableOpacity>
+                  <TextInput
+                    value={qPoints}
+                    onChangeText={setQPoints}
+                    keyboardType="numeric"
+                    style={[S.qInput, { width: 52, backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 16 * fs, textAlign: 'center', paddingVertical: 8, marginBottom: 0 }]}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setQPoints(String(Math.max(1, parseInt(qPoints || '1') - 1)))}
+                    style={[S.qPointsBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  >
+                    <Ionicons name="remove" size={16} color={colors.foreground} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Explanation */}
+              <Text style={[S.qLabel, { color: colors.mutedForeground, fontSize: 12 * fs }]}>شرح الإجابة (اختياري)</Text>
+              <TextInput
+                value={qExplain}
+                onChangeText={setQExplain}
+                placeholder="شرح يظهر للطالب بعد الإجابة..."
+                placeholderTextColor={colors.mutedForeground}
+                style={[S.qInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 13 * fs }]}
+                textAlign="right"
+              />
+
+              {/* Submit button */}
+              <TouchableOpacity
+                onPress={handleAddQuestion}
+                disabled={qSaving}
+                style={[S.qAddBtn, { backgroundColor: typeColor, opacity: qSaving ? 0.7 : 1, marginTop: 4 }]}
+              >
+                {qSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="add-circle" size={20} color="#fff" />
+                }
+                <Text style={[S.qAddBtnText, { fontSize: 15 * fs }]}>
+                  {qSaving ? 'جاري الحفظ...' : 'إضافة السؤال'}
+                </Text>
+              </TouchableOpacity>
+
+            </View>
+          )}
+
           {/* Published toggle */}
           <View style={[S.toggleRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={S.toggleInfo}>
@@ -477,175 +686,6 @@ export default function LessonEditScreen() {
               thumbColor="#fff"
             />
           </View>
-
-          {/* ── Quiz Questions Management ─────────────────────────── */}
-          {QUIZ_TYPES.includes(type) && (
-            <View style={S.fieldGroup}>
-              {/* Section header */}
-              <View style={S.qSecHeader}>
-                <Ionicons name="help-circle-outline" size={20} color={typeColor} />
-                <Text style={[S.qSecTitle, { color: colors.foreground, fontSize: 15 * fs }]}>
-                  أسئلة الاختبار
-                </Text>
-                <Text style={[S.qSecCount, { color: colors.mutedForeground, fontSize: 12 * fs }]}>
-                  {quizLoading ? '...' : `${quizQuestions.length} سؤال`}
-                </Text>
-              </View>
-
-              {/* Existing questions list */}
-              {quizLoading ? (
-                <ActivityIndicator size="small" color={typeColor} />
-              ) : quizQuestions.length > 0 ? (
-                <View style={[S.qList, { borderColor: colors.border }]}>
-                  {quizQuestions.map((q, i) => (
-                    <View key={q.id} style={[S.qRow, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
-                      <View style={S.qRowLeft}>
-                        <Text style={[S.qNum, { color: typeColor, fontSize: 12 * fs }]}>{i + 1}</Text>
-                      </View>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[S.qRowText, { color: colors.foreground, fontSize: 13 * fs }]} numberOfLines={2}>
-                          {q.question}
-                        </Text>
-                        <Text style={[S.qRowAnswer, { color: '#22c55e', fontSize: 11 * fs }]}>
-                          ✓ {q.correctAnswer}  ·  {q.points ?? 1} نقطة
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteQuestion(q.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ paddingLeft: 8 }}
-                      >
-                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              ) : (
-                <View style={[S.qEmpty, { borderColor: colors.border }]}>
-                  <Text style={[S.qEmptyText, { color: colors.mutedForeground, fontSize: 13 * fs }]}>
-                    لا توجد أسئلة — أضف أول سؤال أدناه
-                  </Text>
-                </View>
-              )}
-
-              {/* Add question form */}
-              <View style={[S.qForm, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[S.qFormTitle, { color: colors.foreground, fontSize: 13 * fs }]}>
-                  إضافة سؤال جديد
-                </Text>
-
-                {/* Question type selector */}
-                <View style={S.qTypeRow}>
-                  {([
-                    ['multiple_choice', 'اختيار متعدد'],
-                    ['true_false',      'صح / خطأ'],
-                    ['fill_blank',      'ملء الفراغ'],
-                  ] as const).map(([val, label]) => (
-                    <TouchableOpacity
-                      key={val}
-                      onPress={() => { setQType(val); setQCorrect(''); setQOptions(''); }}
-                      style={[
-                        S.qTypeBtn,
-                        { borderColor: colors.border, backgroundColor: colors.background },
-                        qType === val && { borderColor: typeColor, backgroundColor: typeColor + '18' },
-                      ]}
-                    >
-                      <Text style={[S.qTypeBtnText, { color: qType === val ? typeColor : colors.mutedForeground, fontSize: 11 * fs }]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Question text */}
-                <TextInput
-                  value={qText}
-                  onChangeText={setQText}
-                  placeholder="نص السؤال..."
-                  placeholderTextColor={colors.mutedForeground}
-                  style={[S.qInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 14 * fs }]}
-                  textAlign="right"
-                  multiline
-                  numberOfLines={2}
-                  textAlignVertical="top"
-                />
-
-                {/* MCQ options */}
-                {qType === 'multiple_choice' && (
-                  <TextInput
-                    value={qOptions}
-                    onChangeText={setQOptions}
-                    placeholder="الخيارات مفصولة بفاصلة: خيار أ, خيار ب, خيار ج"
-                    placeholderTextColor={colors.mutedForeground}
-                    style={[S.qInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 13 * fs }]}
-                    textAlign="right"
-                  />
-                )}
-
-                {/* Correct answer */}
-                {qType === 'true_false' ? (
-                  <View style={S.tfBtns}>
-                    {['صح', 'خطأ'].map(v => (
-                      <TouchableOpacity
-                        key={v}
-                        onPress={() => setQCorrect(v)}
-                        style={[
-                          S.tfBtn,
-                          { borderColor: colors.border, backgroundColor: colors.background },
-                          qCorrect === v && { borderColor: '#22c55e', backgroundColor: '#22c55e18' },
-                        ]}
-                      >
-                        <Text style={[{ color: qCorrect === v ? '#22c55e' : colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                          {v === 'صح' ? '✅ صح' : '❌ خطأ'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ) : (
-                  <TextInput
-                    value={qCorrect}
-                    onChangeText={setQCorrect}
-                    placeholder="الإجابة الصحيحة..."
-                    placeholderTextColor={colors.mutedForeground}
-                    style={[S.qInput, { backgroundColor: '#22c55e10', borderColor: '#22c55e40', color: colors.foreground, fontSize: 13 * fs }]}
-                    textAlign="right"
-                  />
-                )}
-
-                {/* Explanation + Points row */}
-                <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-                  <TextInput
-                    value={qExplain}
-                    onChangeText={setQExplain}
-                    placeholder="شرح (اختياري)..."
-                    placeholderTextColor={colors.mutedForeground}
-                    style={[S.qInput, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 12 * fs }]}
-                    textAlign="right"
-                  />
-                  <TextInput
-                    value={qPoints}
-                    onChangeText={setQPoints}
-                    placeholder="نقاط"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="numeric"
-                    style={[S.qInput, { width: 60, backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontSize: 13 * fs, textAlign: 'center' }]}
-                  />
-                </View>
-
-                {/* Submit button */}
-                <TouchableOpacity
-                  onPress={handleAddQuestion}
-                  disabled={qSaving}
-                  style={[S.qAddBtn, { backgroundColor: '#101D36', opacity: qSaving ? 0.6 : 1 }]}
-                >
-                  <Ionicons name="add-circle-outline" size={18} color="#fff" />
-                  <Text style={[S.qAddBtnText, { fontSize: 14 * fs }]}>
-                    {qSaving ? 'جاري الحفظ...' : 'إضافة السؤال'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -717,32 +757,33 @@ const S = StyleSheet.create({
   iconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
   // ── Quiz management styles ────────────────────────────────────
-  qSecHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  qSection: {
+    borderRadius: 18, borderWidth: 1, padding: 16, gap: 10, marginBottom: 0,
+  },
+  qSecHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 4 },
+  qSecIcon:   { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   qSecTitle:  { fontFamily: 'Tajawal_700Bold', flex: 1, textAlign: 'right' },
-  qSecCount:  { fontFamily: 'Tajawal_500Medium' },
+  qBadge:     { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
 
-  qList: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
-  qRow:  { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10, padding: 12, borderTopWidth: 1 },
-  qRowLeft: { width: 22, alignItems: 'center', paddingTop: 2 },
-  qNum:  { fontFamily: 'Tajawal_700Bold' },
-  qRowText:   { fontFamily: 'Tajawal_500Medium', textAlign: 'right', lineHeight: 20 },
-  qRowAnswer: { fontFamily: 'Tajawal_400Regular' },
+  qList: { borderRadius: 14, overflow: 'hidden', borderWidth: 1 },
+  qRow:  { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10, padding: 12, backgroundColor: 'transparent' },
+  qNum:  { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  qDeleteBtn: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  qEmpty: { borderWidth: 1, borderRadius: 14, borderStyle: 'dashed', padding: 20, alignItems: 'center' },
-  qEmptyText: { fontFamily: 'Tajawal_400Regular', textAlign: 'center' },
+  qEmpty: { borderWidth: 1, borderRadius: 14, borderStyle: 'dashed', padding: 24, alignItems: 'center', gap: 8 },
 
-  qForm:  { borderRadius: 16, borderWidth: 1, padding: 16, gap: 10 },
-  qFormTitle: { fontFamily: 'Tajawal_700Bold', textAlign: 'right', marginBottom: 2 },
+  qLabel: { fontFamily: 'Tajawal_700Bold', textAlign: 'right', marginBottom: 2 },
+  qInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontFamily: 'Tajawal_400Regular', marginBottom: 2 },
 
-  qTypeRow: { flexDirection: 'row-reverse', gap: 6 },
-  qTypeBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
+  qTypeRow: { flexDirection: 'row-reverse', gap: 6, marginBottom: 2 },
+  qTypeBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, borderWidth: 1.5 },
   qTypeBtnText: { fontFamily: 'Tajawal_700Bold', textAlign: 'center' },
 
-  qInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontFamily: 'Tajawal_400Regular' },
+  tfBtns: { flexDirection: 'row-reverse', gap: 10, marginBottom: 2 },
+  tfBtn:  { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1.5 },
 
-  tfBtns: { flexDirection: 'row-reverse', gap: 10 },
-  tfBtn:  { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },
+  qPointsBtn: { width: 34, height: 34, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 
-  qAddBtn: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 14 },
+  qAddBtn: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 15 },
   qAddBtnText: { color: '#fff', fontFamily: 'Tajawal_700Bold' },
 });
