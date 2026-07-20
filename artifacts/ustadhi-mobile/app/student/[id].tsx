@@ -97,8 +97,8 @@ export default function StudentDetailScreen() {
     student?.enrolledCourseIds?.includes(c.id)
   );
 
-  const initials = student
-    ? student.fullName.split(' ').slice(0, 2).map((w: string) => w[0]).join('')
+  const initials = student?.fullName
+    ? student.fullName.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('')
     : '؟';
 
   return (
