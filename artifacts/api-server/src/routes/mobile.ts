@@ -411,6 +411,18 @@ router.put("/mobile/admin/teachers/:id", requireMobileAdmin, async (req, res): P
   }
 });
 
+// ── Mobile Teacher: حذف كورس (يتحقق من الملكية) ──────
+router.delete("/mobile/teacher/courses/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const teacherId = parseInt(req.body?.teacherId, 10);
+  if (!teacherId) { res.status(400).json({ error: "teacherId مطلوب" }); return; }
+  const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, id));
+  if (!course) { res.status(404).json({ error: "الكورس غير موجود" }); return; }
+  if (course.teacherId !== teacherId) { res.status(403).json({ error: "ليس لديك صلاحية حذف هذا الكورس" }); return; }
+  await db.delete(coursesTable).where(eq(coursesTable.id, id));
+  res.sendStatus(204);
+});
+
 // ── Mobile Admin: تفاصيل مادة مع أساتذتها ───────────
 router.get("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);

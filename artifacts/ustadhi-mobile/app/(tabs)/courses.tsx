@@ -91,6 +91,36 @@ function TeacherCourses() {
     return true;
   });
 
+  const handleDelete = (courseId: number, courseTitle: string) => {
+    Alert.alert(
+      'حذف الكورس',
+      `هل أنت متأكد من حذف "${courseTitle}"؟\nسيُحذف الكورس وجميع محاضراته نهائياً ولا يمكن التراجع.`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'حذف',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const domain = process.env.EXPO_PUBLIC_DOMAIN;
+              const base = domain ? `https://${domain}` : '';
+              const res = await fetch(`${base}/api/mobile/teacher/courses/${courseId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ teacherId: user!.id }),
+              });
+              if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'فشل الحذف');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              refetch();
+            } catch (e: any) {
+              Alert.alert('خطأ', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleCreate = async () => {
     if (!newTitle.trim()) { Alert.alert('تنبيه', 'يرجى إدخال عنوان الكورس'); return; }
     if (!newSubjectId) { Alert.alert('تنبيه', 'يرجى اختيار المادة'); return; }
@@ -169,14 +199,24 @@ function TeacherCourses() {
                 onPress={() => router.push(`/course/${course.id}`)}
               />
               <View style={[styles.courseFooter, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statusBadge, { backgroundColor: course.isPublished ? colors.success + '20' : colors.muted }]}>
-                  <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs, color: course.isPublished ? colors.success : colors.mutedForeground }]}>
-                    {course.isPublished ? 'منشور' : 'مسودة'}
+                <TouchableOpacity
+                  onPress={() => handleDelete(course.id, course.title)}
+                  style={[styles.deleteBtn, { borderColor: '#ef444440', backgroundColor: '#ef444410' }]}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                  <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>حذف</Text>
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
+                  <Text style={[{ fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, color: colors.mutedForeground }]}>
+                    {course.studentsCount} طالب
                   </Text>
+                  <View style={[styles.statusBadge, { backgroundColor: course.isPublished ? colors.success + '20' : colors.muted }]}>
+                    <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs, color: course.isPublished ? colors.success : colors.mutedForeground }]}>
+                      {course.isPublished ? 'منشور' : 'مسودة'}
+                    </Text>
+                  </View>
                 </View>
-                <Text style={[{ fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, color: colors.mutedForeground }]}>
-                  {course.studentsCount} طالب مشترك
-                </Text>
               </View>
             </View>
           ))
@@ -463,6 +503,7 @@ const styles = StyleSheet.create({
   courseWrapper: { marginBottom: 2 },
   courseFooter: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 26, borderWidth: 1, borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  deleteBtn: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   gateContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 16 },
   gateIcon: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
   loginBtn: { marginTop: 8, paddingHorizontal: 36, paddingVertical: 14, borderRadius: 999 },
