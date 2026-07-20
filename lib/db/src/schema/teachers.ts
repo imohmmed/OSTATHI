@@ -10,6 +10,7 @@ export const teachersTable = pgTable("teachers", {
   password: text("password").notNull(),
   bio: text("bio").notNull().default(""),
   avatarUrl: text("avatar_url"),
+  trialLessonUrl: text("trial_lesson_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

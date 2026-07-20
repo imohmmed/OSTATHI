@@ -326,8 +326,10 @@ router.post("/mobile/admin/teachers", requireMobileAdmin, async (req, res): Prom
     return;
   }
   try {
+  const { trialLessonUrl } = req.body ?? {};
     const [teacher] = await db.insert(teachersTable).values({
       fullName, phone: phone || "", username, password, bio: bio || null,
+      trialLessonUrl: trialLessonUrl || null,
     }).returning();
     if (subjectId) {
       await db.insert(teacherSubjectsTable).values({ teacherId: teacher.id, subjectId }).onConflictDoNothing();
