@@ -329,6 +329,7 @@ export default function SubjectDetailScreen() {
             {/* Teacher cards — horizontal scroll when multiple */}
             <ScrollView
               horizontal
+              inverted
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 16, gap: 12, flexDirection: 'row' }}
             >
