@@ -297,7 +297,7 @@ export default function CourseDetailScreen() {
         <View style={[styles.statsRow, { backgroundColor: colors.card, borderBottomColor: colors.border, borderTopColor: colors.border }]}>
           {[
             { icon: 'play-circle' as const, value: String(orderedLessons.length), label: 'محاضرة' },
-            { icon: 'people' as const, value: String((course as any)?.studentsCount ?? 0), label: 'طالب' },
+            ...(!isStudent ? [{ icon: 'people' as const, value: String((course as any)?.studentsCount ?? 0), label: 'طالب' }] : []),
           ].map((s) => (
             <View key={s.label} style={styles.statItem}>
               <Ionicons name={s.icon} size={16} color={colors.primary} />
@@ -409,7 +409,7 @@ export default function CourseDetailScreen() {
                 order={idx + 1}
                 duration={item.duration}
                 isCompleted={false}
-                onPress={isOwner ? () => handleLessonPress(item) : undefined}
+                onPress={() => handleLessonPress(item)}
               />
             </View>
 
