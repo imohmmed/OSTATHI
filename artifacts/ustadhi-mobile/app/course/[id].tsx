@@ -218,6 +218,8 @@ export default function CourseDetailScreen() {
     }
   };
 
+  const QUIZ_TYPES = ['mcq', 'true_false', 'fill_blank', 'qa', 'quiz'];
+
   const handleLessonPress = useCallback(
     (lesson: Lesson) => {
       if (isOwner) {
@@ -227,11 +229,19 @@ export default function CourseDetailScreen() {
           params: { id: lesson.id, courseId },
         });
       } else if (isStudent) {
-        // Student → viewer screen
-        router.push({
-          pathname: '/lesson/view/[id]' as any,
-          params: { id: lesson.id, courseId },
-        });
+        if (QUIZ_TYPES.includes((lesson as any).type ?? '')) {
+          // Quiz / exam → dedicated quiz page
+          router.push({
+            pathname: '/lesson/quiz/[id]' as any,
+            params: { id: lesson.id, courseId },
+          });
+        } else {
+          // Video, pdf, text, etc. → lesson viewer
+          router.push({
+            pathname: '/lesson/view/[id]' as any,
+            params: { id: lesson.id, courseId },
+          });
+        }
       }
     },
     [isOwner, isStudent, courseId, router]

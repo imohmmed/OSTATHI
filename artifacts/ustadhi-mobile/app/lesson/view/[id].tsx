@@ -89,27 +89,6 @@ export default function LessonViewerScreen() {
 
   const videoUrl: string = lesson?.contentUrl ?? '';
   const isVideoLesson = lesson?.type === 'video' || lesson?.type === 'livestream';
-  const isQuizLesson  = ['mcq', 'true_false', 'fill_blank', 'qa', 'quiz'].includes(lesson?.type ?? '');
-
-  // ── Quiz state ───────────────────────────────────────────────────────────────
-  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
-  const [quizLoading, setQuizLoading]     = useState(false);
-  const [quizDone, setQuizDone]           = useState(false);
-  const [currentQ, setCurrentQ]           = useState(0);
-  const [userAnswers, setUserAnswers]      = useState<Record<number, string>>({});
-  const [revealed, setRevealed]           = useState(false);
-  const [fillInput, setFillInput]         = useState('');
-
-  const fetchQuiz = useCallback(async () => {
-    if (!isQuizLesson) return;
-    setQuizLoading(true);
-    try {
-      const r = await fetch(`${API_BASE}/lessons/${lessonId}/quizzes`);
-      if (r.ok) setQuizQuestions(await r.json());
-    } catch {}
-    setQuizLoading(false);
-  }, [lessonId, isQuizLesson]);
-
   // ── Reactions state ─────────────────────────────────────────────────────────
   const [likes, setLikes] = useState(0);
   const [dislikes, setDislikes] = useState(0);
@@ -184,50 +163,7 @@ export default function LessonViewerScreen() {
     fetchReactions();
     fetchProgress();
     checkLocalFile();
-    fetchQuiz();
-  }, [fetchReactions, fetchProgress, checkLocalFile, fetchQuiz]);
-
-  // ─── Quiz helpers ────────────────────────────────────────────────────────────
-  const q = quizQuestions[currentQ];
-  const totalQ = quizQuestions.length;
-  const chosenAnswer = q ? userAnswers[q.id] : undefined;
-  const isCorrect = chosenAnswer !== undefined && q?.correctAnswer &&
-    chosenAnswer.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase();
-
-  const handleAnswer = useCallback((answer: string) => {
-    if (!q || revealed) return;
-    setUserAnswers(prev => ({ ...prev, [q.id]: answer }));
-    setRevealed(true);
-    setFillInput('');
-  }, [q, revealed]);
-
-  const handleNext = useCallback(() => {
-    if (currentQ < totalQ - 1) {
-      setCurrentQ(i => i + 1);
-      setRevealed(false);
-      setFillInput('');
-    } else {
-      setQuizDone(true);
-    }
-  }, [currentQ, totalQ]);
-
-  const resetQuiz = useCallback(() => {
-    setCurrentQ(0);
-    setUserAnswers({});
-    setRevealed(false);
-    setQuizDone(false);
-    setFillInput('');
-  }, []);
-
-  const quizScore = quizQuestions.reduce((acc, qq) => {
-    const ans = userAnswers[qq.id];
-    if (ans && qq.correctAnswer &&
-        ans.trim().toLowerCase() === qq.correctAnswer.trim().toLowerCase()) {
-      return acc + (qq.points ?? 1);
-    }
-    return acc;
-  }, 0);
-  const maxScore = quizQuestions.reduce((acc, qq) => acc + (qq.points ?? 1), 0);
+  }, [fetchReactions, fetchProgress, checkLocalFile]);
 
   // ─── Video URL ───────────────────────────────────────────────────────────────
   const resolvedUrl = localUri ?? (videoUrl || null);
@@ -346,12 +282,21 @@ export default function LessonViewerScreen() {
   };
 
   // ─── Lesson step press ───────────────────────────────────────────────────────
+  const QUIZ_TYPES = ['mcq', 'true_false', 'fill_blank', 'qa', 'quiz'];
+
   const handleStepPress = (l: any) => {
     if (l.id === lessonId) return;
-    router.replace({
-      pathname: '/lesson/view/[id]' as any,
-      params: { id: l.id, courseId: cId },
-    });
+    if (QUIZ_TYPES.includes(l.type ?? '')) {
+      router.replace({
+        pathname: '/lesson/quiz/[id]' as any,
+        params: { id: l.id, courseId: cId },
+      });
+    } else {
+      router.replace({
+        pathname: '/lesson/view/[id]' as any,
+        params: { id: l.id, courseId: cId },
+      });
+    }
   };
 
   // ─── Render lesson step ──────────────────────────────────────────────────────
@@ -402,217 +347,6 @@ export default function LessonViewerScreen() {
     );
   };
 
-  // ─── Quiz UI ─────────────────────────────────────────────────────────────────
-  const renderQuiz = () => {
-    if (quizLoading) {
-      return (
-        <View style={[S.quizWrap, { alignItems: 'center', justifyContent: 'center', minHeight: 200 }]}>
-          <ActivityIndicator size="large" color="#D4A843" />
-        </View>
-      );
-    }
-
-    if (totalQ === 0) {
-      return (
-        <View style={[S.quizWrap, { alignItems: 'center', justifyContent: 'center', minHeight: 180 }]}>
-          <Ionicons name="help-circle-outline" size={52} color="rgba(212,168,67,0.4)" />
-          <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, marginTop: 12, textAlign: 'center' }}>
-            لا توجد أسئلة بعد
-          </Text>
-        </View>
-      );
-    }
-
-    // ── Results screen ──────────────────────────────────────────────────────────
-    if (quizDone) {
-      const pct = maxScore > 0 ? Math.round((quizScore / maxScore) * 100) : 0;
-      const passed = pct >= 60;
-      return (
-        <View style={S.quizWrap}>
-          <View style={S.resultCard}>
-            <Text style={[S.resultEmoji]}>{passed ? '🎉' : '💪'}</Text>
-            <Text style={[S.resultTitle, { color: colors.foreground }]}>
-              {passed ? 'أحسنت!' : 'حاول مجدداً'}
-            </Text>
-            <Text style={[S.resultScore, { color: passed ? '#22c55e' : '#ef4444' }]}>
-              {quizScore} / {maxScore}
-            </Text>
-            <Text style={[S.resultPct, { color: colors.mutedForeground }]}>{pct}%</Text>
-
-            {/* Per-question breakdown */}
-            <View style={S.resultBreakdown}>
-              {quizQuestions.map((qq, i) => {
-                const ans = userAnswers[qq.id];
-                const ok = ans && qq.correctAnswer &&
-                  ans.trim().toLowerCase() === qq.correctAnswer.trim().toLowerCase();
-                return (
-                  <View key={qq.id} style={S.resultRow}>
-                    <Ionicons name={ok ? 'checkmark-circle' : 'close-circle'} size={18}
-                      color={ok ? '#22c55e' : '#ef4444'} />
-                    <Text style={[S.resultRowText, { color: colors.foreground }]} numberOfLines={2}>
-                      {i + 1}. {qq.question}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity onPress={resetQuiz} style={[S.quizBtn, S.quizBtnPrimary]}>
-              <Ionicons name="refresh" size={18} color="#fff" />
-              <Text style={[S.quizBtnText, { color: '#fff' }]}>إعادة الاختبار</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
-    }
-
-    // ── Question screen ─────────────────────────────────────────────────────────
-    const isMCQ       = q.type === 'multiple_choice';
-    const isTF        = q.type === 'true_false';
-    const isFill      = q.type === 'fill_blank' || q.type === 'short_answer';
-
-    return (
-      <View style={S.quizWrap}>
-        {/* Progress bar */}
-        <View style={S.progressTrack}>
-          <View style={[S.progressFill, { width: `${((currentQ) / totalQ) * 100}%` as any }]} />
-        </View>
-        <Text style={[S.progressText, { color: colors.mutedForeground }]}>
-          سؤال {currentQ + 1} من {totalQ}
-        </Text>
-
-        {/* Question card */}
-        <View style={[S.questionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[S.questionText, { color: colors.foreground }]}>{q.question}</Text>
-          {q.points > 1 && (
-            <Text style={[S.questionPoints, { color: '#D4A843' }]}>{q.points} نقاط</Text>
-          )}
-        </View>
-
-        {/* MCQ options */}
-        {isMCQ && (q.options ?? []).length > 0 && (
-          <View style={S.optionsList}>
-            {(q.options as string[]).map((opt, i) => {
-              const chosen = chosenAnswer === opt;
-              const correct = revealed && q.correctAnswer === opt;
-              const wrong   = revealed && chosen && !correct;
-              return (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => handleAnswer(opt)}
-                  disabled={revealed}
-                  style={[
-                    S.optionBtn,
-                    { borderColor: colors.border, backgroundColor: colors.card },
-                    correct && S.optionCorrect,
-                    wrong   && S.optionWrong,
-                    chosen && !revealed && S.optionSelected,
-                  ]}
-                  activeOpacity={0.75}
-                >
-                  <View style={[S.optionLetter, { backgroundColor: '#101D36' + '20' }]}>
-                    <Text style={{ color: '#101D36', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }}>
-                      {String.fromCharCode(65 + i)}
-                    </Text>
-                  </View>
-                  <Text style={[S.optionText, { color: colors.foreground }]}>{opt}</Text>
-                  {correct && <Ionicons name="checkmark-circle" size={20} color="#22c55e" />}
-                  {wrong   && <Ionicons name="close-circle"     size={20} color="#ef4444" />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* True / False */}
-        {isTF && (
-          <View style={S.tfRow}>
-            {(['صح', 'خطأ'] as const).map((opt) => {
-              const chosen  = chosenAnswer === opt;
-              const correct = revealed && q.correctAnswer === opt;
-              const wrong   = revealed && chosen && !correct;
-              return (
-                <TouchableOpacity
-                  key={opt}
-                  onPress={() => handleAnswer(opt)}
-                  disabled={revealed}
-                  style={[
-                    S.tfBtn,
-                    { borderColor: colors.border, backgroundColor: colors.card },
-                    correct && S.optionCorrect,
-                    wrong   && S.optionWrong,
-                    chosen && !revealed && S.optionSelected,
-                  ]}
-                  activeOpacity={0.75}
-                >
-                  <Text style={{ fontSize: 28 }}>{opt === 'صح' ? '✅' : '❌'}</Text>
-                  <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs }]}>{opt}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Fill in the blank / Short answer */}
-        {isFill && (
-          <View style={S.fillWrap}>
-            <TextInput
-              value={fillInput}
-              onChangeText={setFillInput}
-              placeholder="اكتب إجابتك هنا..."
-              placeholderTextColor={colors.mutedForeground}
-              editable={!revealed}
-              style={[S.fillInput, {
-                color: colors.foreground, borderColor: colors.border,
-                backgroundColor: colors.background, fontFamily: 'Tajawal_400Regular',
-                fontSize: 15 * fs,
-              }]}
-              textAlign="right"
-            />
-            {!revealed && (
-              <TouchableOpacity
-                onPress={() => fillInput.trim() && handleAnswer(fillInput.trim())}
-                style={[S.quizBtn, S.quizBtnPrimary, { marginTop: 10 }]}
-              >
-                <Text style={[S.quizBtnText, { color: '#fff' }]}>تأكيد الإجابة</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Explanation after reveal */}
-        {revealed && (
-          <View style={[S.explanationBox, {
-            backgroundColor: isCorrect ? '#22c55e18' : '#ef444418',
-            borderColor:     isCorrect ? '#22c55e50' : '#ef444450',
-          }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Ionicons name={isCorrect ? 'checkmark-circle' : 'close-circle'}
-                size={20} color={isCorrect ? '#22c55e' : '#ef4444'} />
-              <Text style={{ color: isCorrect ? '#22c55e' : '#ef4444', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }}>
-                {isCorrect ? 'إجابة صحيحة!' : `خطأ — الصحيح: ${q.correctAnswer}`}
-              </Text>
-            </View>
-            {q.explanation ? (
-              <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, textAlign: 'right' }}>
-                {q.explanation}
-              </Text>
-            ) : null}
-          </View>
-        )}
-
-        {/* Next button */}
-        {revealed && (
-          <TouchableOpacity onPress={handleNext} style={[S.quizBtn, S.quizBtnPrimary]}>
-            <Text style={[S.quizBtnText, { color: '#fff' }]}>
-              {currentQ < totalQ - 1 ? 'السؤال التالي' : 'إنهاء الاختبار'}
-            </Text>
-            <Ionicons name={currentQ < totalQ - 1 ? 'arrow-back' : 'flag'} size={18} color="#fff" />
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
 
   // ─── Header: video + lesson info + action bar ────────────────────────────────
   const renderHeader = () => (
@@ -641,8 +375,6 @@ export default function LessonViewerScreen() {
         </View>
       ) : null}
 
-      {/* ── Quiz / Exam ── */}
-      {isQuizLesson && renderQuiz()}
 
       {/* ── Lesson title ── */}
       <View style={[S.titleRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -843,75 +575,6 @@ const S = StyleSheet.create({
   // Placeholder when no video URL
   videoWrap: { width: '100%', backgroundColor: '#0a1628', alignItems: 'center', justifyContent: 'center' },
 
-  // ── Quiz ────────────────────────────────────────────────────────────────────
-  quizWrap: { padding: 16, gap: 14 },
-
-  progressTrack: {
-    height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.08)',
-    overflow: 'hidden', marginBottom: 2,
-  },
-  progressFill: { height: '100%', borderRadius: 3, backgroundColor: '#D4A843' },
-  progressText: { textAlign: 'right', fontFamily: 'Tajawal_500Medium', fontSize: 12 },
-
-  questionCard: {
-    borderRadius: 14, borderWidth: 1, padding: 18, gap: 8,
-  },
-  questionText: {
-    fontFamily: 'Tajawal_700Bold', fontSize: 17, textAlign: 'right', lineHeight: 28,
-  },
-  questionPoints: { fontFamily: 'Tajawal_500Medium', fontSize: 12, textAlign: 'right' },
-
-  optionsList: { gap: 10 },
-  optionBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
-    borderWidth: 1.5, borderRadius: 12, padding: 14,
-  },
-  optionSelected: { borderColor: '#D4A843', backgroundColor: '#D4A84315' },
-  optionCorrect:  { borderColor: '#22c55e', backgroundColor: '#22c55e15' },
-  optionWrong:    { borderColor: '#ef4444', backgroundColor: '#ef444415' },
-  optionLetter: {
-    width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-  },
-  optionText: {
-    flex: 1, fontFamily: 'Tajawal_500Medium', fontSize: 15, textAlign: 'right',
-  },
-
-  tfRow:  { flexDirection: 'row-reverse', gap: 14 },
-  tfBtn: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderWidth: 1.5, borderRadius: 14, paddingVertical: 20,
-  },
-
-  fillWrap: { gap: 6 },
-  fillInput: {
-    borderWidth: 1, borderRadius: 12, padding: 14, minHeight: 80,
-    textAlignVertical: 'top',
-  },
-
-  explanationBox: {
-    borderWidth: 1, borderRadius: 12, padding: 14, gap: 4,
-  },
-
-  quizBtn: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center',
-    gap: 8, borderRadius: 12, paddingVertical: 14,
-  },
-  quizBtnPrimary: { backgroundColor: '#101D36' },
-  quizBtnText:    { fontFamily: 'Tajawal_700Bold', fontSize: 15 },
-
-  // Results
-  resultCard: { alignItems: 'center', gap: 8, paddingVertical: 20 },
-  resultEmoji: { fontSize: 52, marginBottom: 4 },
-  resultTitle: { fontFamily: 'Tajawal_800ExtraBold', fontSize: 24 },
-  resultScore: { fontFamily: 'Tajawal_900Black', fontSize: 42, lineHeight: 50 },
-  resultPct:   { fontFamily: 'Tajawal_500Medium', fontSize: 16, marginBottom: 8 },
-  resultBreakdown: { width: '100%', gap: 8, marginVertical: 12 },
-  resultRow: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
-  },
-  resultRowText: {
-    flex: 1, fontFamily: 'Tajawal_400Regular', fontSize: 13, textAlign: 'right',
-  },
 
   // Lesson title
   titleRow: {
