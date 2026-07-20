@@ -28,3 +28,11 @@ export const studentCoursesTable = pgTable("student_courses", {
   courseId: integer("course_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Student-Subject assignments (which subjects a student can access)
+export const studentSubjectsTable = pgTable("student_subjects", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
+  subjectId: integer("subject_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -11,6 +11,7 @@ import {
   coursesTable,
   messagesTable,
   studentCoursesTable,
+  studentSubjectsTable,
 } from "@workspace/db";
 import { eq, sql, inArray } from "drizzle-orm";
 
@@ -256,10 +257,32 @@ router.get("/mobile/admin/students/:id", requireMobileAdmin, async (req, res): P
     ? await db.select({ id: coursesTable.id, title: coursesTable.title })
         .from(coursesTable).where(inArray(coursesTable.id, courseIds))
     : [];
+  // enrolled subjects
+  const enrolledSubjects = await db.select({ subjectId: studentSubjectsTable.subjectId })
+    .from(studentSubjectsTable).where(eq(studentSubjectsTable.studentId, id));
+  const subjectIds = enrolledSubjects.map(r => r.subjectId);
+  const subjectList = subjectIds.length > 0
+    ? await db.select({ id: subjectsTable.id, name: subjectsTable.name, icon: subjectsTable.icon, gradeLevel: subjectsTable.gradeLevel })
+        .from(subjectsTable).where(inArray(subjectsTable.id, subjectIds))
+    : [];
   // parent
   const [parent] = await db.select({ id: parentsTable.id, fullName: parentsTable.fullName, username: parentsTable.username, phone: parentsTable.phone })
     .from(parentsTable).where(eq(parentsTable.studentId, id));
-  res.json({ ...student, password: undefined, courses: courseList, parent: parent ?? null });
+  res.json({ ...student, password: undefined, courses: courseList, subjects: subjectList, parent: parent ?? null });
+});
+
+// ── Mobile Admin: تحديث مواد الطالب ──────────────────
+router.put("/mobile/admin/students/:id/subjects", requireMobileAdmin, async (req, res): Promise<void> => {
+  const studentId = parseInt(req.params.id, 10);
+  const { subjectIds } = req.body ?? {};
+  if (!Array.isArray(subjectIds)) { res.status(400).json({ error: "subjectIds مطلوب" }); return; }
+  await db.delete(studentSubjectsTable).where(eq(studentSubjectsTable.studentId, studentId));
+  if (subjectIds.length > 0) {
+    await db.insert(studentSubjectsTable)
+      .values(subjectIds.map((sId: number) => ({ studentId, subjectId: sId })))
+      .onConflictDoNothing();
+  }
+  res.json({ enrolled: subjectIds.length });
 });
 
 // ── Mobile Admin: إضافة ولي أمر لطالب ────────────────

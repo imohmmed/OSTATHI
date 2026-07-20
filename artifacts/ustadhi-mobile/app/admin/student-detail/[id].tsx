@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  FlatList,
   Modal,
   ScrollView,
   StyleSheet,
@@ -19,15 +20,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 
+interface StudentDetail {
+  id: number; fullName: string; username: string; phone: string;
+  gradeLevel: string; isActive: boolean; notes: string | null;
+  courses: { id: number; title: string }[];
+  subjects: { id: number; name: string; icon: string | null; gradeLevel: string | null }[];
+  parent: { id: number; fullName: string; username: string; phone: string } | null;
+}
+interface SubjectItem { id: number; name: string; icon: string | null; gradeLevel: string | null; }
+
 function useStudentAdminDetail(id: number, adminToken: string | undefined) {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   const base = domain ? `https://${domain}` : '';
-  return useQuery<{
-    id: number; fullName: string; username: string; phone: string;
-    gradeLevel: string; isActive: boolean; notes: string | null;
-    courses: { id: number; title: string }[];
-    parent: { id: number; fullName: string; username: string; phone: string } | null;
-  }>({
+  return useQuery<StudentDetail>({
     queryKey: ['admin-student-detail', id],
     queryFn: async () => {
       const res = await fetch(`${base}/api/mobile/admin/students/${id}`, {
@@ -37,6 +42,19 @@ function useStudentAdminDetail(id: number, adminToken: string | undefined) {
       return res.json();
     },
     enabled: !!adminToken && !!id,
+  });
+}
+
+function useAllSubjects() {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  return useQuery<SubjectItem[]>({
+    queryKey: ['subjects'],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/subjects`);
+      if (!res.ok) return [];
+      return res.json();
+    },
   });
 }
 
@@ -61,9 +79,11 @@ export default function AdminStudentDetailScreen() {
   const qc = useQueryClient();
 
   const { data: student, isLoading, refetch } = useStudentAdminDetail(studentId, adminToken);
+  const { data: allSubjects = [] } = useAllSubjects();
 
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', gradeLevel: '', notes: '' });
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<number[]>([]);
   const [showAddParent, setShowAddParent] = useState(false);
   const [parentForm, setParentForm] = useState({ fullName: '', username: '', password: '', phone: '' });
 
@@ -80,17 +100,29 @@ export default function AdminStudentDetailScreen() {
       gradeLevel: student.gradeLevel,
       notes: student.notes ?? '',
     });
+    setSelectedSubjectIds((student.subjects ?? []).map(s => s.id));
     setEditMode(true);
   };
 
+  const toggleSubject = (id: number) =>
+    setSelectedSubjectIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
   const saveEdit = async () => {
     try {
-      const res = await fetch(`${base}/api/mobile/admin/students/${studentId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
-        body: JSON.stringify({ ...form }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'فشل');
+      const [infoRes, subjectsRes] = await Promise.all([
+        fetch(`${base}/api/mobile/admin/students/${studentId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
+          body: JSON.stringify({ ...form }),
+        }),
+        fetch(`${base}/api/mobile/admin/students/${studentId}/subjects`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
+          body: JSON.stringify({ subjectIds: selectedSubjectIds }),
+        }),
+      ]);
+      if (!infoRes.ok) throw new Error((await infoRes.json().catch(() => ({}))).error ?? 'فشل');
+      if (!subjectsRes.ok) throw new Error((await subjectsRes.json().catch(() => ({}))).error ?? 'فشل حفظ المواد');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEditMode(false);
       qc.invalidateQueries({ queryKey: ['admin-student-detail', studentId] });
@@ -163,6 +195,33 @@ export default function AdminStudentDetailScreen() {
               </Text>
             </View>
           ) : null}
+        </View>
+
+        {/* Subjects */}
+        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={styles.cardHeader}>
+            <TouchableOpacity onPress={startEdit} style={[styles.smallAddBtn, { backgroundColor: `${c.primary}20`, borderWidth: 1, borderColor: c.primary }]}>
+              <Ionicons name="pencil" size={14} color={c.primary} />
+            </TouchableOpacity>
+            <Text style={[styles.sectionTitle, { color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>
+              المواد المسموح بها ({(student.subjects ?? []).length})
+            </Text>
+          </View>
+          {(student.subjects ?? []).length === 0 ? (
+            <TouchableOpacity onPress={startEdit} style={[styles.addParentBtn, { borderColor: c.border }]}>
+              <Ionicons name="library-outline" size={18} color={c.primary} />
+              <Text style={[{ color: c.primary, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>تحديد المواد</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              {(student.subjects ?? []).map(s => (
+                <View key={s.id} style={[styles.subjectBadge, { backgroundColor: `${c.primary}15`, borderColor: `${c.primary}40` }]}>
+                  <Text style={{ fontSize: 16 }}>{s.icon ?? '📚'}</Text>
+                  <Text style={[{ color: c.primary, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>{s.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Courses */}
@@ -256,7 +315,7 @@ export default function AdminStudentDetailScreen() {
             {/* Grade selector */}
             <View style={{ gap: 8 }}>
               <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, textAlign: 'right' }]}>الصف</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row-reverse' }}>
+              <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 }}>
                 {GRADE_LEVELS.map(g => (
                   <TouchableOpacity
                     key={g}
@@ -266,7 +325,61 @@ export default function AdminStudentDetailScreen() {
                     <Text style={[{ color: form.gradeLevel === g ? c.primaryForeground : c.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>{g}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
+            </View>
+
+            {/* Subject selector */}
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
+                  {selectedSubjectIds.length} مادة مختارة
+                </Text>
+                <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, textAlign: 'right' }]}>
+                  المواد المسموح بها
+                </Text>
+              </View>
+              {allSubjects.length === 0 ? (
+                <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]}>
+                  لا توجد مواد مضافة بعد
+                </Text>
+              ) : (
+                allSubjects.map(s => {
+                  const selected = selectedSubjectIds.includes(s.id);
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      onPress={() => toggleSubject(s.id)}
+                      style={[styles.subjectCheckRow, {
+                        backgroundColor: selected ? `${c.primary}12` : c.card,
+                        borderColor: selected ? c.primary : c.border,
+                      }]}
+                      activeOpacity={0.75}
+                    >
+                      {/* Checkbox */}
+                      <View style={[styles.checkbox, {
+                        backgroundColor: selected ? c.primary : 'transparent',
+                        borderColor: selected ? c.primary : c.border,
+                      }]}>
+                        {selected && <Ionicons name="checkmark" size={14} color={c.primaryForeground} />}
+                      </View>
+                      {/* Subject info */}
+                      <View style={{ flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
+                        <Text style={{ fontSize: 22 }}>{s.icon ?? '📚'}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'right' }]}>
+                            {s.name}
+                          </Text>
+                          {s.gradeLevel && (
+                            <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs, textAlign: 'right' }]}>
+                              {s.gradeLevel}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
           </ScrollView>
         </View>
@@ -326,4 +439,30 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
   input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, textAlignVertical: 'top' },
   gradePillBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  subjectBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  subjectCheckRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
 });
