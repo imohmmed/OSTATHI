@@ -35,7 +35,17 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000 },
+    queries: {
+      retry: 1,
+      // Data stays fresh for 5 minutes → no refetch on tab switch
+      staleTime: 5 * 60_000,
+      // Keep unused data in cache for 30 minutes
+      gcTime: 30 * 60_000,
+      // Don't re-fetch just because the app comes to foreground
+      refetchOnWindowFocus: false,
+      // Don't re-fetch on every mount if we already have data
+      refetchOnMount: false,
+    },
   },
 });
 

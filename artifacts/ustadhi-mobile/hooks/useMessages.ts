@@ -56,7 +56,7 @@ export function useStudentConversation(studentId?: number, teacherId?: number) {
       return res.json();
     },
     enabled: !!studentId && !!teacherId,
-    refetchInterval: 5000,
+    refetchInterval: 30_000, // poll every 30s instead of 5s
   });
 }
 
@@ -71,7 +71,7 @@ export function useTeacherInbox(teacherId?: number) {
       return res.json();
     },
     enabled: !!teacherId,
-    refetchInterval: 6000,
+    refetchInterval: 30_000, // poll every 30s instead of 6s
   });
 }
 

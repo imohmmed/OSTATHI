@@ -30,6 +30,9 @@ app.use(cors());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
+// Enable ETags so unchanged responses get 304 Not Modified
+app.set("etag", "strong");
+
 // خدمة الملفات المرفوعة
 const uploadsDir = path.join(process.cwd(), "uploads");
 app.use("/api/uploads", express.static(uploadsDir));

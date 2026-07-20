@@ -8,7 +8,7 @@ import {
   teachersTable,
   studentCoursesTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
 import { requireAdmin } from "./admin";
 
 const router: IRouter = Router();
@@ -29,7 +29,8 @@ router.get("/courses", async (req, res): Promise<void> => {
   if (isPublished !== undefined) conditions.push(eq(coursesTable.isPublished, isPublished));
   if (isTrial !== undefined) conditions.push(eq(coursesTable.isTrial, isTrial));
 
-  const courses = await db
+  // Single query with subquery counts — no N+1
+  const result = await db
     .select({
       id: coursesTable.id,
       title: coursesTable.title,
@@ -44,19 +45,13 @@ router.get("/courses", async (req, res): Promise<void> => {
       isPublished: coursesTable.isPublished,
       isTrial: coursesTable.isTrial,
       createdAt: coursesTable.createdAt,
+      lessonsCount: sql<number>`(select count(*)::int from lessons l where l.course_id = ${coursesTable.id})`,
+      studentsCount: sql<number>`(select count(*)::int from student_courses sc where sc.course_id = ${coursesTable.id})`,
     })
     .from(coursesTable)
     .leftJoin(subjectsTable, eq(coursesTable.subjectId, subjectsTable.id))
     .leftJoin(teachersTable, eq(coursesTable.teacherId, teachersTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined);
-
-  const result = await Promise.all(courses.map(async c => {
-    const [{ count: lessonsCount }] = await db
-      .select({ count: sql<number>`count(*)::int` }).from(lessonsTable).where(eq(lessonsTable.courseId, c.id));
-    const [{ count: studentsCount }] = await db
-      .select({ count: sql<number>`count(*)::int` }).from(studentCoursesTable).where(eq(studentCoursesTable.courseId, c.id));
-    return { ...c, lessonsCount, studentsCount };
-  }));
 
   res.json(result);
 });
