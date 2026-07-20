@@ -130,11 +130,11 @@ export default function RootLayout() {
     Tajawal_900Black,
   });
 
-  // ── DRM: prevent screenshots & screen recording ──────────────────
-  useEffect(() => {
-    ScreenCapture.preventScreenCaptureAsync();
-    return () => { ScreenCapture.allowScreenCaptureAsync(); };
-  }, []);
+  // ── DRM: prevent screenshots & screen recording ── (مؤقتاً معطّل)
+  // useEffect(() => {
+  //   ScreenCapture.preventScreenCaptureAsync();
+  //   return () => { ScreenCapture.allowScreenCaptureAsync(); };
+  // }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
