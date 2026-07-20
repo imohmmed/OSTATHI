@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
+import sharp from "sharp";
 import { db } from "@workspace/db";
 import { messagesTable, studentsTable, teachersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
@@ -12,10 +13,15 @@ const router: IRouter = Router();
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+const HEIC_TYPES = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const isHeic = HEIC_TYPES.includes(file.mimetype) ||
+      /\.(heic|heif)$/i.test(file.originalname);
+    // HEIC files will be converted → save with .jpg extension
+    const ext = isHeic ? ".jpg" : path.extname(file.originalname);
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
   },
 });
@@ -27,16 +33,34 @@ const upload = multer({
     const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp",
       "application/pdf", "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain"];
-    cb(null, allowed.includes(file.mimetype));
+      "text/plain", ...HEIC_TYPES];
+    const isHeicByExt = /\.(heic|heif)$/i.test(file.originalname);
+    cb(null, allowed.includes(file.mimetype) || isHeicByExt);
   },
 });
 
+// ── تحويل HEIC → JPEG بعد الرفع ──────────────────────
+async function convertHeicIfNeeded(file: Express.Multer.File): Promise<void> {
+  const isHeic = HEIC_TYPES.includes(file.mimetype) ||
+    /\.(heic|heif)$/i.test(file.originalname);
+  if (!isHeic) return;
+  const filePath = file.path;
+  // sharp reads HEIC natively (via libheif) and outputs JPEG
+  const jpgBuf = await sharp(filePath).jpeg({ quality: 88 }).toBuffer();
+  fs.writeFileSync(filePath, jpgBuf);
+  file.mimetype = "image/jpeg";
+}
+
 // ── رفع ملف/صورة ──────────────────────────────────────
-router.post("/messages/upload", upload.single("file"), (req, res): void => {
+router.post("/messages/upload", upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: "لم يتم رفع أي ملف" });
     return;
+  }
+  try {
+    await convertHeicIfNeeded(req.file);
+  } catch {
+    // إذا فشل التحويل نكمل بالملف الأصلي
   }
   const isImage = req.file.mimetype.startsWith("image/");
   const domain = process.env["REPLIT_DEV_DOMAIN"] ?? "localhost";

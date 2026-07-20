@@ -563,6 +563,7 @@ function StudentCourses() {
               teacherName={course.teacherName}
               subjectName={course.subjectName}
               lessonsCount={course.lessonsCount}
+              thumbnailUrl={(course as any).thumbnailUrl ?? null}
               progress={progress?.[course.id] ?? 0}
               onPress={() => router.push(`/course/${course.id}`)}
             />
