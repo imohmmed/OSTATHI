@@ -14,9 +14,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { PageHeader } from '@/components/PageHeader';
 import { useGetCourse } from '@workspace/api-client-react';
 
 const API_BASE = (() => {
@@ -43,7 +43,6 @@ export default function QuizScreen() {
   const colors  = useColors();
   const { fontScale } = useApp();
   const fs      = fontScale;
-  const insets  = useSafeAreaInsets();
 
   const { data: course } = useGetCourse(cId);
   const lessons: any[] = course?.lessons ?? [];
@@ -128,28 +127,23 @@ export default function QuizScreen() {
   return (
     <View style={[S.screen, { backgroundColor: colors.background }]}>
 
-      {/* ── Header ── */}
-      <View style={[S.header, { paddingTop: insets.top + 8, backgroundColor: '#101D36' }]}>
-        <TouchableOpacity onPress={goBack} style={S.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-          <Text style={[S.backText, { fontSize: 15 * fs }]}>رجوع</Text>
-        </TouchableOpacity>
-
-        <View style={S.headerCenter}>
-          <Text style={[S.headerTitle, { fontSize: 16 * fs }]} numberOfLines={1}>
-            {lesson?.title ?? 'الاختبار'}
-          </Text>
+      {/* ── Header (unified PageHeader like all other pages) ── */}
+      <PageHeader
+        title={lesson?.title ?? 'الاختبار'}
+        onBack={goBack}
+        backgroundColor="#101D36"
+        tintColor="#fff"
+        borderColor="rgba(255,255,255,0.1)"
+        right={
           <View style={[S.typePill, { backgroundColor: typeColor + '30', borderColor: typeColor + '60' }]}>
             <Text style={[S.typePillText, { color: typeColor, fontSize: 11 * fs }]}>{typeLabel}</Text>
           </View>
-        </View>
-
-        <View style={{ width: 70 }} />
-      </View>
+        }
+      />
 
       {/* ── Body ── */}
       <ScrollView
-        contentContainerStyle={[S.body, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[S.body, { paddingBottom: 48 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -453,17 +447,6 @@ function ResultsView({ score, maxScore, questions, userAnswers, colors, fs, onRe
 const S = StyleSheet.create({
   screen: { flex: 1 },
 
-  header: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingBottom: 14,
-    gap: 8,
-  },
-  backBtn: { flexDirection: 'row-reverse', alignItems: 'center', gap: 2, width: 70 },
-  backText: { color: '#fff', fontFamily: 'Tajawal_500Medium' },
-  headerCenter: { flex: 1, alignItems: 'center', gap: 4 },
-  headerTitle: { color: '#fff', fontFamily: 'Tajawal_700Bold', textAlign: 'center' },
   typePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, borderWidth: 1,

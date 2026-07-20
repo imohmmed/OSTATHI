@@ -6,8 +6,12 @@ import {
   useCreateLesson, 
   useUpdateLesson, 
   useDeleteLesson,
+  useGetQuizzes,
+  useCreateQuiz,
+  useDeleteQuiz,
   getGetLessonsQueryKey,
-  getGetCourseQueryKey
+  getGetCourseQueryKey,
+  getGetQuizzesQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown, Video, FileText, HelpCircle, Link as LinkIcon, Radio, MessageSquare, BookOpen, GripVertical } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, Video, FileText, HelpCircle, Link as LinkIcon, Radio, MessageSquare, BookOpen, GripVertical, X, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -54,12 +58,26 @@ const lessonTypesAr: Record<string, string> = {
   feedback: 'استبيان / تقييم',
 };
 
+// ─── Quiz question schema ─────────────────────────────────────────────────────
+const quizSchema = z.object({
+  question:      z.string().min(2, 'السؤال مطلوب'),
+  type:          z.enum(['multiple_choice', 'true_false', 'fill_blank', 'short_answer']),
+  options:       z.string().optional(), // comma-separated for MCQ
+  correctAnswer: z.string().min(1, 'الإجابة الصحيحة مطلوبة'),
+  explanation:   z.string().optional(),
+  points:        z.coerce.number().min(1).default(1),
+});
+
 export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
   const courseId = Number(params.id);
   
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+
+  // Quiz management state
+  const [quizLessonId, setQuizLessonId] = useState<number | null>(null);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
 
   const { data: course, isLoading: isLoadingCourse } = useGetCourse(courseId, { query: { enabled: !!courseId, queryKey: getGetCourseQueryKey(courseId) } });
   const { data: lessons, isLoading: isLoadingLessons } = useGetLessons(courseId, { query: { enabled: !!courseId, queryKey: getGetLessonsQueryKey(courseId) } });
@@ -74,6 +92,56 @@ export default function CourseDetailPage() {
     resolver: zodResolver(lessonSchema),
     defaultValues: { title: '', type: 'video', contentUrl: '', contentText: '', duration: 0, isPublished: true },
   });
+
+  // Quiz questions hooks
+  const { data: quizQuestions, refetch: refetchQuizzes } = useGetQuizzes(
+    quizLessonId ?? 0,
+    { query: { enabled: !!quizLessonId, queryKey: getGetQuizzesQueryKey(quizLessonId ?? 0) } }
+  );
+  const createQuiz = useCreateQuiz();
+  const deleteQuiz = useDeleteQuiz();
+
+  const quizForm = useForm<z.infer<typeof quizSchema>>({
+    resolver: zodResolver(quizSchema),
+    defaultValues: { question: '', type: 'multiple_choice', options: '', correctAnswer: '', explanation: '', points: 1 },
+  });
+
+  const quizType = quizForm.watch('type');
+
+  const openQuizModal = (lessonId: number) => {
+    setQuizLessonId(lessonId);
+    setIsQuizOpen(true);
+  };
+
+  const onQuizSubmit = (values: z.infer<typeof quizSchema>) => {
+    if (!quizLessonId) return;
+    const opts = values.type === 'multiple_choice'
+      ? values.options?.split(',').map(s => s.trim()).filter(Boolean) ?? []
+      : [];
+    createQuiz.mutate(
+      { lessonId: quizLessonId, data: { ...values, options: opts } as any },
+      {
+        onSuccess: () => {
+          toast({ title: 'تمت إضافة السؤال' });
+          queryClient.invalidateQueries({ queryKey: getGetQuizzesQueryKey(quizLessonId) });
+          refetchQuizzes();
+          quizForm.reset({ question: '', type: values.type, options: '', correctAnswer: '', explanation: '', points: 1 });
+        },
+        onError: () => toast({ title: 'خطأ في الحفظ', variant: 'destructive' }),
+      }
+    );
+  };
+
+  const handleDeleteQuestion = (qId: number) => {
+    if (!confirm('حذف السؤال؟')) return;
+    deleteQuiz.mutate({ id: qId }, {
+      onSuccess: () => {
+        toast({ title: 'تم الحذف' });
+        queryClient.invalidateQueries({ queryKey: getGetQuizzesQueryKey(quizLessonId ?? 0) });
+        refetchQuizzes();
+      },
+    });
+  };
 
   const sortedLessons = lessons ? [...lessons].sort((a, b) => a.order - b.order) : [];
 
@@ -276,8 +344,8 @@ export default function CourseDetailPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {lesson.type === 'quiz' && (
-                      <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
+                    {['quiz', 'mcq', 'true_false', 'fill_blank', 'qa'].includes(lesson.type) && (
+                      <Button variant="outline" size="sm" className="hidden sm:flex gap-2" onClick={() => openQuizModal(lesson.id)}>
                         <HelpCircle className="w-4 h-4" /> إدارة الأسئلة
                       </Button>
                     )}
@@ -294,6 +362,129 @@ export default function CourseDetailPage() {
           })
         )}
       </div>
+
+      {/* ── Quiz Questions Modal ───────────────────────────────────────────── */}
+      <Dialog open={isQuizOpen} onOpenChange={(open) => { setIsQuizOpen(open); if (!open) { setQuizLessonId(null); quizForm.reset(); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              إدارة أسئلة الاختبار
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Existing questions */}
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {!quizQuestions || quizQuestions.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-xl">
+                لا يوجد أسئلة بعد — أضف أول سؤال أدناه
+              </div>
+            ) : (
+              quizQuestions.map((q: any, i: number) => (
+                <div key={q.id} className="flex items-start gap-3 p-3 rounded-xl border bg-muted/30">
+                  <span className="text-purple-600 font-bold text-sm mt-0.5 shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{q.question}</p>
+                    <p className="text-xs text-muted-foreground mt-1">الإجابة: <span className="text-green-600 font-medium">{q.correctAnswer}</span> • {q.points ?? 1} نقطة</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleDeleteQuestion(q.id)}>
+                    <X className="w-4 h-4 text-red-500" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add question form */}
+          <div className="border-t pt-4 mt-2">
+            <h4 className="font-bold mb-3">إضافة سؤال جديد</h4>
+            <Form {...quizForm}>
+              <form onSubmit={quizForm.handleSubmit(onQuizSubmit)} className="space-y-3">
+                <FormField control={quizForm.control} name="question" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>نص السؤال</FormLabel>
+                    <FormControl><Textarea {...field} placeholder="اكتب السؤال هنا..." className="min-h-[80px]" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField control={quizForm.control} name="type" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>نوع السؤال</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="multiple_choice">اختيار متعدد</SelectItem>
+                          <SelectItem value="true_false">صح / خطأ</SelectItem>
+                          <SelectItem value="fill_blank">ملء الفراغ</SelectItem>
+                          <SelectItem value="short_answer">إجابة قصيرة</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={quizForm.control} name="points" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>النقاط</FormLabel>
+                      <FormControl><Input type="number" min={1} {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+
+                {quizType === 'multiple_choice' && (
+                  <FormField control={quizForm.control} name="options" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>الخيارات (افصل بفاصلة)</FormLabel>
+                      <FormControl><Input {...field} placeholder="خيار أ, خيار ب, خيار ج, خيار د" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                )}
+
+                {quizType === 'true_false' ? (
+                  <FormField control={quizForm.control} name="correctAnswer" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>الإجابة الصحيحة</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="صح">✅ صح</SelectItem>
+                          <SelectItem value="خطأ">❌ خطأ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                ) : (
+                  <FormField control={quizForm.control} name="correctAnswer" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>الإجابة الصحيحة</FormLabel>
+                      <FormControl><Input {...field} placeholder={quizType === 'multiple_choice' ? 'اكتب الخيار الصحيح كما هو بالضبط' : 'الإجابة المقبولة'} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                )}
+
+                <FormField control={quizForm.control} name="explanation" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الشرح (اختياري)</FormLabel>
+                    <FormControl><Input {...field} placeholder="يظهر للطالب بعد الإجابة..." /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <Button type="submit" className="w-full gap-2" disabled={createQuiz.isPending}>
+                  <Plus className="w-4 h-4" />
+                  {createQuiz.isPending ? 'جاري الحفظ...' : 'إضافة السؤال'}
+                </Button>
+              </form>
+            </Form>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
