@@ -1,8 +1,9 @@
-import { pgTable, text, serial, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, integer, unique, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachersTable } from "./teachers";
 import { subjectsTable } from "./subjects";
+import { studentsTable } from "./students";
 
 export const coursesTable = pgTable("courses", {
   id: serial("id").primaryKey(),
@@ -56,3 +57,22 @@ export const quizzesTable = pgTable("quizzes", {
 export const insertQuizSchema = createInsertSchema(quizzesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type Quiz = typeof quizzesTable.$inferSelect;
+
+// ── Lesson reactions (like / dislike per student) ────────────────────────────
+export const lessonReactionsTable = pgTable("lesson_reactions", {
+  id: serial("id").primaryKey(),
+  lessonId: integer("lesson_id").notNull().references(() => lessonsTable.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
+  reaction: text("reaction").notNull(), // 'like' | 'dislike'
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique().on(t.lessonId, t.studentId)]);
+
+// ── Lesson video progress (position tracking per student) ────────────────────
+export const lessonVideoProgressTable = pgTable("lesson_video_progress", {
+  id: serial("id").primaryKey(),
+  lessonId: integer("lesson_id").notNull().references(() => lessonsTable.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
+  positionSeconds: doublePrecision("position_seconds").notNull().default(0),
+  completed: boolean("completed").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => [unique().on(t.lessonId, t.studentId)]);

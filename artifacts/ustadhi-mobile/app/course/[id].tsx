@@ -215,13 +215,20 @@ export default function CourseDetailScreen() {
   const handleLessonPress = useCallback(
     (lesson: Lesson) => {
       if (isOwner) {
+        // Teacher → edit screen
         router.push({
           pathname: '/lesson/[id]' as any,
           params: { id: lesson.id, courseId },
         });
+      } else if (isStudent) {
+        // Student → viewer screen
+        router.push({
+          pathname: '/lesson/view/[id]' as any,
+          params: { id: lesson.id, courseId },
+        });
       }
     },
-    [isOwner, courseId, router]
+    [isOwner, isStudent, courseId, router]
   );
 
   // ── List Header (hero + stats + section title) ───────────────────

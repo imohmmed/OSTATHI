@@ -59,7 +59,10 @@
     "@expo-google-fonts/tajawal": "^0.4.1",
     "expo-device": "^8.0.10",
     "expo-document-picker": "^14.0.8",
+    "expo-file-system": "^19.0.23",
+    "expo-media-library": "^18.2.1",
     "expo-screen-capture": "^8.0.9",
+    "expo-video": "^3.0.16",
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-webview": "^13.15.0"
   }
