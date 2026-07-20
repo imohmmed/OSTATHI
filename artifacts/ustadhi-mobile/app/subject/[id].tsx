@@ -326,8 +326,15 @@ export default function SubjectDetailScreen() {
               </Text>
             )}
 
-            {/* Teacher cards */}
-            {section.teachers.map(t => renderTeacherCard(t))}
+            {/* Teacher cards — horizontal scroll when multiple */}
+            <ScrollView
+              horizontal
+              inverted
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12, flexDirection: 'row-reverse' }}
+            >
+              {section.teachers.map(t => renderTeacherCard(t))}
+            </ScrollView>
           </View>
         ))}
       </ScrollView>
@@ -561,7 +568,7 @@ const S = StyleSheet.create({
 
   // Teacher card
   teacherCard: {
-    marginHorizontal: 16,
+    width: 260,
     marginBottom: 14,
     borderRadius: 24,
     borderWidth: 1,
