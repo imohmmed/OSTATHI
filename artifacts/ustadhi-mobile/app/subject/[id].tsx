@@ -568,7 +568,7 @@ const S = StyleSheet.create({
 
   // Teacher card
   teacherCard: {
-    width: 260,
+    width: 300,
     marginBottom: 14,
     borderRadius: 24,
     borderWidth: 1,
