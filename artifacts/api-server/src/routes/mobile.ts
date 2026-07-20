@@ -129,6 +129,19 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
     return;
   }
 
+  // ── أدمن ──────────────────────────────────────────
+  const adminUsername = process.env.ADMIN_USERNAME ?? "admin";
+  const adminPassword = (global as any).__adminPassword ?? process.env.ADMIN_PASSWORD ?? "admin123";
+  if (username === adminUsername && password === adminPassword) {
+    res.json({
+      id: 0,
+      fullName: "المدير",
+      phone: "",
+      role: "admin",
+    });
+    return;
+  }
+
   res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
 });
 
