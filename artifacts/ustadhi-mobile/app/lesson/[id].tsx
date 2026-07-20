@@ -2,8 +2,9 @@
  * Lesson edit screen — opened by the teacher when they tap a lesson row.
  * Route: /lesson/[id]?courseId=<courseId>
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -104,6 +106,9 @@ export default function LessonEditScreen() {
   const [richHtml, setRichHtml] = useState('');
   const [durationMin, setDurationMin] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+  const [detectingDuration, setDetectingDuration] = useState(false);
+  const [durationAutoDetected, setDurationAutoDetected] = useState(false);
+  const durationDetectedRef = useRef(false);
 
   useEffect(() => {
     if (!lesson) return;
@@ -113,7 +118,35 @@ export default function LessonEditScreen() {
     setRichHtml(lesson.contentText ?? '');
     setDurationMin(lesson.duration ? String(Math.round(lesson.duration / 60)) : '');
     setIsPublished(lesson.isPublished ?? true);
+    durationDetectedRef.current = !!lesson.duration;
   }, [lesson]);
+
+  // ── Auto-detect duration from URL ──────────────────────────────
+  const isVideoType = type === 'video' || type === 'livestream';
+  const videoSource = isVideoType && contentUrl.trim() ? contentUrl.trim() : null;
+
+  const durationPlayer = useVideoPlayer(videoSource, (p) => {
+    p.pause();
+    p.muted = true;
+  });
+
+  useEffect(() => {
+    if (!videoSource || durationDetectedRef.current) return;
+    setDetectingDuration(true);
+    setDurationAutoDetected(false);
+  }, [videoSource]);
+
+  useEffect(() => {
+    if (!durationPlayer || durationDetectedRef.current) return;
+    const dur = durationPlayer.duration;
+    if (dur && dur > 0 && isFinite(dur)) {
+      const mins = Math.max(1, Math.round(dur / 60));
+      setDurationMin(String(mins));
+      setDetectingDuration(false);
+      setDurationAutoDetected(true);
+      durationDetectedRef.current = true;
+    }
+  }, [durationPlayer?.duration]);
 
   const type = lesson?.type ?? 'video';
   const needsUrl = URL_TYPES.includes(type);
@@ -299,16 +332,43 @@ export default function LessonEditScreen() {
           {/* Duration */}
           {needsDuration && (
             <View style={S.fieldGroup}>
-              <FLabel text="مدة الفيديو (بالدقائق)" colors={colors} fs={fs} />
-              <TextInput
-                style={[S.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, width: 130 }]}
-                placeholder="45"
-                placeholderTextColor={colors.mutedForeground}
-                value={durationMin}
-                onChangeText={setDurationMin}
-                keyboardType="numeric"
-                textAlign="center"
-              />
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8, justifyContent: 'flex-start' }}>
+                <FLabel text="مدة الفيديو (بالدقائق)" colors={colors} fs={fs} />
+                {detectingDuration && (
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }}>
+                      جاري الاكتشاف...
+                    </Text>
+                  </View>
+                )}
+                {durationAutoDetected && !detectingDuration && (
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="checkmark-circle" size={15} color="#22c55e" />
+                    <Text style={{ color: '#22c55e', fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }}>
+                      تم الاكتشاف تلقائياً
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
+                <TextInput
+                  style={[S.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, width: 130 }]}
+                  placeholder="45"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={durationMin}
+                  onChangeText={(v) => {
+                    setDurationMin(v);
+                    setDurationAutoDetected(false);
+                    durationDetectedRef.current = false;
+                  }}
+                  keyboardType="numeric"
+                  textAlign="center"
+                />
+                <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }}>
+                  دقيقة
+                </Text>
+              </View>
             </View>
           )}
 
