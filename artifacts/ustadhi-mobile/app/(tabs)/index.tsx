@@ -247,7 +247,7 @@ function StudentHome() {
 
   const { data: subjects, isLoading: sl, refetch: refetchS } = useGetSubjects();
   const { data: allTeachers, refetch: refetchT } = useGetTeachers();
-  const { data: courses, isLoading: cl, refetch: refetchC } = useGetCourses({ isPublished: true });
+  const { data: courses, isLoading: cl, refetch: refetchC } = useGetCourses();
   const { data: reviews, isLoading: rl, refetch: refetchR } = useGetReviews({ isPublished: true });
   const { data: banners = [] } = useBanners();
 

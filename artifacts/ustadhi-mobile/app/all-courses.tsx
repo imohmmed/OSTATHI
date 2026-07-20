@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
+  Modal,
   Platform,
   RefreshControl,
   ScrollView,
@@ -14,9 +15,10 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { CourseCard } from '@/components/CourseCard';
 import { SkeletonCard } from '@/components/SkeletonLoader';
-import { useGetCourses, useGetSubjects, useGetTeachers } from '@workspace/api-client-react';
+import { useGetCourses, useGetSubjects, useGetTeachers, useGetStudentCourses } from '@workspace/api-client-react';
 
 type SortKey = 'newest' | 'oldest' | 'title';
 
@@ -28,16 +30,26 @@ export default function AllCoursesScreen() {
   const fs = fontScale;
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
+  const { user, isLoggedIn } = useAuth();
+
   const [refreshing, setRefreshing] = useState(false);
   const [subjectFilter, setSubjectFilter] = useState<number | null>(null);
   const [teacherFilter, setTeacherFilter] = useState<number | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>('newest');
   const [showFilters, setShowFilters] = useState(false);
+  const [showLoginGate, setShowLoginGate] = useState(false);
+  const [pendingCourseId, setPendingCourseId] = useState<number | null>(null);
 
-  const { data: courses, isLoading, refetch } = useGetCourses({ isPublished: true });
+  // All published + unpublished courses (admin sees all; guests/students browse all)
+  const { data: courses, isLoading, refetch } = useGetCourses();
   const { data: subjects } = useGetSubjects();
   const { data: teachers } = useGetTeachers();
+
+  // For students: fetch enrolled course IDs
+  const studentId = user?.role === 'student' ? user.id : undefined;
+  const { data: enrolledCourses } = useGetStudentCourses(studentId as number, { query: { enabled: !!studentId } });
+  const enrolledIds = new Set((enrolledCourses ?? []).map((c: any) => c.id));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -70,6 +82,21 @@ export default function AllCoursesScreen() {
     setSubjectFilter(null);
     setTeacherFilter(null);
     setGradeFilter(null);
+  };
+
+  const handleCoursePress = (courseId: number) => {
+    if (!isLoggedIn) {
+      setPendingCourseId(courseId);
+      setShowLoginGate(true);
+      return;
+    }
+    // Students: only enrolled courses
+    if (user?.role === 'student' && !enrolledIds.has(courseId)) {
+      setPendingCourseId(courseId);
+      setShowLoginGate(true);
+      return;
+    }
+    router.push(`/course/${courseId}` as any);
   };
 
   return (
@@ -249,10 +276,60 @@ export default function AllCoursesScreen() {
             gradeLevel={(item as any).gradeLevel}
             thumbnailUrl={(item as any).thumbnailUrl}
             lessonsCount={item.lessonsCount}
-            onPress={() => router.push(`/course/${item.id}` as any)}
+            onPress={() => handleCoursePress(item.id)}
           />
         )}
       />
+
+      {/* ── Login / Not-enrolled gate ── */}
+      <Modal
+        visible={showLoginGate}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginGate(false)}
+      >
+        <TouchableOpacity
+          style={S.overlay}
+          activeOpacity={1}
+          onPress={() => setShowLoginGate(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[S.gateCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <View style={[S.gateIcon, { backgroundColor: `${colors.primary}18` }]}>
+              <Ionicons name="lock-closed" size={36} color={colors.primary} />
+            </View>
+
+            <Text style={[S.gateTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 19 * fs }]}>
+              {!isLoggedIn ? 'سجّل دخولك أولاً' : 'غير مشترك في هذه الدورة'}
+            </Text>
+            <Text style={[S.gateBody, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>
+              {!isLoggedIn
+                ? 'يجب تسجيل الدخول لمشاهدة تفاصيل الدورة'
+                : 'هذه الدورة غير مربوطة بحسابك.\nتواصل مع إدارة المنصة لتفعيل اشتراكك.'}
+            </Text>
+
+            {!isLoggedIn && (
+              <TouchableOpacity
+                style={[S.gateBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setShowLoginGate(false);
+                  router.push('/login' as any);
+                }}
+              >
+                <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>
+                  تسجيل الدخول
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity onPress={() => setShowLoginGate(false)} style={S.gateCancel}>
+              <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 13 * fs }]}>إلغاء</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -326,4 +403,11 @@ const S = StyleSheet.create({
     borderBottomWidth: 1,
   },
   empty: { alignItems: 'center', gap: 12, marginTop: 80, paddingHorizontal: 40 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  gateCard: { width: '100%', borderRadius: 28, borderWidth: 1, padding: 28, alignItems: 'center', gap: 12 },
+  gateIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  gateTitle: { textAlign: 'center' },
+  gateBody: { textAlign: 'center', lineHeight: 22 },
+  gateBtn: { width: '100%', paddingVertical: 14, borderRadius: 999, alignItems: 'center', marginTop: 6 },
+  gateCancel: { paddingVertical: 8, paddingHorizontal: 16 },
 });

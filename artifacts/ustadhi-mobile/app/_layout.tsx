@@ -82,6 +82,7 @@ function RootLayoutNav() {
           headerTitleStyle: { color: '#ffffff', fontFamily: 'Tajawal_700Bold' },
         }}
       />
+      <Stack.Screen name="all-courses" options={{ headerShown: false }} />
       <Stack.Screen
         name="student/[id]"
         options={{
