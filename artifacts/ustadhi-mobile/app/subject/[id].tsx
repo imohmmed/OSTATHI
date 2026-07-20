@@ -190,7 +190,7 @@ export default function SubjectDetailScreen() {
   const sections = groupByGrade(subject?.teachers ?? []);
 
   // ─── Teacher Card ──────────────────────────────────────────────────────────
-  const renderTeacherCard = (item: Teacher) => {
+  const renderTeacherCard = (item: Teacher, fullWidth = false) => {
     const onPress = () => {
       if (adminToken) {
         router.push({ pathname: '/admin/teacher-detail/[id]' as any, params: { id: item.id } });
@@ -203,7 +203,7 @@ export default function SubjectDetailScreen() {
         key={item.id}
         onPress={onPress}
         activeOpacity={0.88}
-        style={[S.teacherCard, { backgroundColor: c.card, borderColor: c.border }]}
+        style={[S.teacherCard, { backgroundColor: c.card, borderColor: c.border }, fullWidth && { width: '100%' }]}
       >
         {/* Rectangular image */}
         {item.avatarUrl ? (
@@ -326,16 +326,22 @@ export default function SubjectDetailScreen() {
               </Text>
             )}
 
-            {/* Teacher cards — horizontal scroll, first card on right (RTL) */}
-            <FlatList
-              horizontal
-              inverted
-              data={section.teachers}
-              keyExtractor={(t) => String(t.id)}
-              renderItem={({ item }) => renderTeacherCard(item)}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-            />
+            {/* Single teacher → full width; multiple → horizontal scroll */}
+            {section.teachers.length === 1 ? (
+              <View style={{ paddingHorizontal: 16 }}>
+                {renderTeacherCard(section.teachers[0], true)}
+              </View>
+            ) : (
+              <FlatList
+                horizontal
+                inverted
+                data={section.teachers}
+                keyExtractor={(t) => String(t.id)}
+                renderItem={({ item }) => renderTeacherCard(item, false)}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+              />
+            )}
           </View>
         ))}
       </ScrollView>
