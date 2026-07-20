@@ -252,12 +252,33 @@ router.get("/lessons/:lessonId/quizzes", async (req, res): Promise<void> => {
   res.json(quizzes);
 });
 
-router.post("/lessons/:lessonId/quizzes", requireAdmin, async (req, res): Promise<void> => {
+// Helper: verify that teacherId owns the lesson (or skip check if isAdmin)
+async function verifyLessonOwner(
+  lessonId: number,
+  teacherId: number | undefined,
+  isAdmin: boolean
+): Promise<boolean> {
+  if (isAdmin) return true;
+  if (!teacherId) return false;
+  const [row] = await db
+    .select({ teacherId: coursesTable.teacherId })
+    .from(lessonsTable)
+    .leftJoin(coursesTable, eq(lessonsTable.courseId, coursesTable.id))
+    .where(eq(lessonsTable.id, lessonId));
+  return row?.teacherId === teacherId;
+}
+
+router.post("/lessons/:lessonId/quizzes", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.lessonId) ? req.params.lessonId[0] : req.params.lessonId;
   const lessonId = parseInt(raw, 10);
-  const { question, type, options, correctAnswer, explanation, points } = req.body;
+  const { question, type, options, correctAnswer, explanation, points, teacherId, isAdmin } = req.body;
   if (!question || !type) {
     res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  const allowed = await verifyLessonOwner(lessonId, teacherId, !!isAdmin);
+  if (!allowed) {
+    res.status(403).json({ error: "غير مسموح" });
     return;
   }
   const [quiz] = await db.insert(quizzesTable).values({
@@ -272,10 +293,20 @@ router.post("/lessons/:lessonId/quizzes", requireAdmin, async (req, res): Promis
   res.status(201).json(quiz);
 });
 
-router.patch("/quizzes/:id", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/quizzes/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { question, type, options, correctAnswer, explanation, points } = req.body;
+  const { question, type, options, correctAnswer, explanation, points, teacherId, isAdmin } = req.body;
+
+  // Verify ownership via quiz → lesson → course
+  const [existing] = await db
+    .select({ lessonId: quizzesTable.lessonId })
+    .from(quizzesTable)
+    .where(eq(quizzesTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Quiz not found" }); return; }
+  const allowed = await verifyLessonOwner(existing.lessonId, teacherId, !!isAdmin);
+  if (!allowed) { res.status(403).json({ error: "غير مسموح" }); return; }
+
   const updates: Record<string, any> = {};
   if (question !== undefined) updates.question = question;
   if (type !== undefined) updates.type = type;
@@ -285,16 +316,22 @@ router.patch("/quizzes/:id", requireAdmin, async (req, res): Promise<void> => {
   if (points !== undefined) updates.points = points;
 
   const [quiz] = await db.update(quizzesTable).set(updates).where(eq(quizzesTable.id, id)).returning();
-  if (!quiz) {
-    res.status(404).json({ error: "Quiz not found" });
-    return;
-  }
   res.json(quiz);
 });
 
-router.delete("/quizzes/:id", requireAdmin, async (req, res): Promise<void> => {
+router.delete("/quizzes/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
+  const { teacherId, isAdmin } = req.body;
+
+  const [existing] = await db
+    .select({ lessonId: quizzesTable.lessonId })
+    .from(quizzesTable)
+    .where(eq(quizzesTable.id, id));
+  if (!existing) { res.sendStatus(204); return; }
+  const allowed = await verifyLessonOwner(existing.lessonId, teacherId, !!isAdmin);
+  if (!allowed) { res.status(403).json({ error: "غير مسموح" }); return; }
+
   await db.delete(quizzesTable).where(eq(quizzesTable.id, id));
   res.sendStatus(204);
 });
