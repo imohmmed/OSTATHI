@@ -41,7 +41,9 @@ export default function AllCoursesScreen() {
   const [showLoginGate, setShowLoginGate] = useState(false);
   const [pendingCourseId, setPendingCourseId] = useState<number | null>(null);
 
-  // All published + unpublished courses (admin sees all; guests/students browse all)
+  // Admins see all; students/guests see published only
+  const isAdmin = user?.role === 'admin';
+  const isTeacher = user?.role === 'teacher';
   const { data: courses, isLoading, refetch } = useGetCourses();
   const { data: subjects } = useGetSubjects();
   const { data: teachers } = useGetTeachers();
@@ -67,6 +69,8 @@ export default function AllCoursesScreen() {
   // Filter + sort
   const filtered = useMemo(() => {
     let list = [...(courses ?? [])];
+    // Non-admin/teacher users only see published courses
+    if (!isAdmin && !isTeacher) list = list.filter((c) => c.isPublished);
     if (subjectFilter) list = list.filter((c) => c.subjectId === subjectFilter);
     if (teacherFilter) list = list.filter((c) => c.teacherId === teacherFilter);
     if (gradeFilter) list = list.filter((c) => (c as any).gradeLevel === gradeFilter);

@@ -32,6 +32,7 @@ import {
   useDeleteLesson,
   useUpdateLesson,
   useGetSubjects,
+  useGetStudentCourses,
   getGetCourseQueryKey,
 } from '@workspace/api-client-react';
 
@@ -81,6 +82,15 @@ export default function CourseDetailScreen() {
   const { data: subjects } = useGetSubjects();
   const deleteLesson = useDeleteLesson();
   const updateLesson = useUpdateLesson();
+
+  // Enrollment check for students
+  const isStudent = user?.role === 'student';
+  const { data: enrolledCourses } = useGetStudentCourses(user?.id as number, {
+    query: { enabled: isStudent },
+  });
+  const isEnrolled = isStudent
+    ? (enrolledCourses ?? []).some((c: any) => c.id === courseId)
+    : true; // teachers/admins always "enrolled"
 
   const lessons: Lesson[] = (course?.lessons ?? []) as Lesson[];
   const isOwner = user?.role === 'teacher' && course?.teacherId === user.id;
@@ -413,6 +423,63 @@ export default function CourseDetailScreen() {
     [isOwner, colors, handleLessonPress]
   );
 
+  // ── Gate: not logged in ─────────────────────────────────────────
+  if (!isLoading && !user) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+        <LinearGradient colors={['#101D36', '#1e3a6e']} style={[StyleSheet.absoluteFill, { opacity: 0.06 }]} />
+        <View style={[styles.gateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.gateIcon, { backgroundColor: colors.primary + '18' }]}>
+            <Ionicons name="lock-closed" size={32} color={colors.primary} />
+          </View>
+          <Text style={[styles.gateTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
+            {course?.title ?? 'الدورة'}
+          </Text>
+          <Text style={[styles.gateBody, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
+            سجّل دخولك أولاً لمشاهدة محتوى هذه الدورة
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/login' as any)}
+            style={[styles.gateBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>تسجيل الدخول</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()} style={styles.gateCancel}>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>رجوع</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Gate: student not enrolled ───────────────────────────────────
+  if (!isLoading && isStudent && enrolledCourses !== undefined && !isEnrolled) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+        <View style={[styles.gateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.gateIcon, { backgroundColor: '#f59e0b18' }]}>
+            <Ionicons name="school-outline" size={32} color="#f59e0b" />
+          </View>
+          <Text style={[styles.gateTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
+            {course?.title ?? 'الدورة'}
+          </Text>
+          <Text style={[styles.gateBody, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
+            أنت غير مشترك في هذه الدورة.{'\n'}تواصل مع الإدارة أو أستاذك لإضافتك.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.replace('/(tabs)/courses' as any)}
+            style={[styles.gateBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>كورساتي</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()} style={styles.gateCancel}>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }]}>رجوع</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   // ── Render ──────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -737,4 +804,29 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
   },
+  gateCard: {
+    width: '100%',
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 28,
+    alignItems: 'center',
+    gap: 14,
+  },
+  gateIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gateTitle: { textAlign: 'center', lineHeight: 30 },
+  gateBody: { textAlign: 'center', lineHeight: 22, opacity: 0.8 },
+  gateBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 999,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  gateCancel: { paddingVertical: 8 },
 });
