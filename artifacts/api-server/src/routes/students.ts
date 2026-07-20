@@ -7,7 +7,12 @@ import {
   subjectsTable,
   teachersTable,
 } from "@workspace/db";
-import { eq, ilike, and, or, inArray, sql } from "drizzle-orm";
+import { eq, ilike, and, or, inArray, sql, desc } from "drizzle-orm";
+import {
+  lessonsTable,
+  lessonVideoProgressTable,
+  lessonReactionsTable,
+} from "@workspace/db";
 import { requireAdmin } from "./admin";
 
 const router: IRouter = Router();
@@ -149,6 +154,94 @@ router.get("/students/:id/courses", async (req, res): Promise<void> => {
   });
 
   res.json(merged.map(c => ({ ...c, lessonsCount: 0, studentsCount: 0 })));
+});
+
+// ── GET /students/:id/activity-summary ───────────────────────────────────────
+// Returns lesson progress, stats, last activity — for teacher to view student behavior
+router.get("/students/:id/activity-summary", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+
+  // Fetch student basic info
+  const [student] = await db
+    .select({
+      id: studentsTable.id,
+      fullName: studentsTable.fullName,
+      gradeLevel: studentsTable.gradeLevel,
+      isActive: studentsTable.isActive,
+      lastSeenAt: studentsTable.lastSeenAt,
+      createdAt: studentsTable.createdAt,
+    })
+    .from(studentsTable)
+    .where(eq(studentsTable.id, id));
+
+  if (!student) { res.status(404).json({ error: "Student not found" }); return; }
+
+  // All lesson progress for this student — joined with lesson + course info
+  const progressRows = await db
+    .select({
+      lessonId: lessonVideoProgressTable.lessonId,
+      positionSeconds: lessonVideoProgressTable.positionSeconds,
+      completed: lessonVideoProgressTable.completed,
+      updatedAt: lessonVideoProgressTable.updatedAt,
+      lessonTitle: lessonsTable.title,
+      lessonType: lessonsTable.type,
+      lessonDuration: lessonsTable.duration,
+      lessonOrder: lessonsTable.order,
+      courseId: lessonsTable.courseId,
+      courseTitle: coursesTable.title,
+      teacherName: teachersTable.fullName,
+    })
+    .from(lessonVideoProgressTable)
+    .innerJoin(lessonsTable, eq(lessonVideoProgressTable.lessonId, lessonsTable.id))
+    .innerJoin(coursesTable, eq(lessonsTable.courseId, coursesTable.id))
+    .innerJoin(teachersTable, eq(coursesTable.teacherId, teachersTable.id))
+    .where(eq(lessonVideoProgressTable.studentId, id))
+    .orderBy(desc(lessonVideoProgressTable.updatedAt));
+
+  // Stats
+  const totalOpened = progressRows.length;
+  const totalCompleted = progressRows.filter(r => r.completed).length;
+
+  // Last activity: max updatedAt across all progress rows, or lastSeenAt from login
+  const lastProgressDate = progressRows.length > 0 ? progressRows[0].updatedAt : null;
+  const lastActivity =
+    lastProgressDate && student.lastSeenAt
+      ? new Date(lastProgressDate) > new Date(student.lastSeenAt) ? lastProgressDate : student.lastSeenAt
+      : lastProgressDate ?? student.lastSeenAt ?? null;
+
+  // Group by course
+  const courseMap: Record<number, {
+    courseId: number;
+    courseTitle: string;
+    teacherName: string;
+    lessonsOpened: number;
+    lessonsCompleted: number;
+    lessons: typeof progressRows;
+  }> = {};
+
+  for (const row of progressRows) {
+    if (!courseMap[row.courseId]) {
+      courseMap[row.courseId] = {
+        courseId: row.courseId,
+        courseTitle: row.courseTitle,
+        teacherName: row.teacherName,
+        lessonsOpened: 0,
+        lessonsCompleted: 0,
+        lessons: [],
+      };
+    }
+    courseMap[row.courseId].lessonsOpened++;
+    if (row.completed) courseMap[row.courseId].lessonsCompleted++;
+    courseMap[row.courseId].lessons.push(row);
+  }
+
+  res.json({
+    student,
+    stats: { totalOpened, totalCompleted, lastActivity },
+    courseActivity: Object.values(courseMap),
+    recentActivity: progressRows.slice(0, 20), // last 20 interactions
+  });
 });
 
 router.post("/students/:id/courses", requireAdmin, async (req, res): Promise<void> => {

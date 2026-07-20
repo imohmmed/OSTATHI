@@ -47,6 +47,8 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
       res.status(403).json({ error: "الحساب غير مفعّل. تواصل مع الإدارة." });
       return;
     }
+    // Track last login time
+    await db.update(studentsTable).set({ lastSeenAt: new Date() }).where(eq(studentsTable.id, student.id));
     res.json({
       id: student.id,
       fullName: student.fullName,
