@@ -7,3 +7,4 @@ export * from "./reviews";
 export * from "./livestreams";
 export * from "./notifications";
 export * from "./messages";
+export * from "./banners";

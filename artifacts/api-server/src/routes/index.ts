@@ -12,6 +12,7 @@ import coursesRouter from "./courses";
 import reviewsRouter from "./reviews";
 import livestreamsRouter from "./livestreams";
 import notificationsRouter from "./notifications";
+import bannersRouter from "./banners";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(coursesRouter);
 router.use(reviewsRouter);
 router.use(livestreamsRouter);
 router.use(notificationsRouter);
+router.use(bannersRouter);
 
 export default router;

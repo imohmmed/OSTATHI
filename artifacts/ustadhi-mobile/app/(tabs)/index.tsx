@@ -29,12 +29,27 @@ import {
   useGetReviews,
 } from '@workspace/api-client-react';
 import { useQuery } from '@tanstack/react-query';
+import { BannerCarousel } from '@/components/BannerCarousel';
 
 const SOCIAL_LINKS = [
   { icon: 'logo-instagram' as const, label: 'انستقرام', color: '#e1306c' },
   { icon: 'logo-whatsapp' as const, label: 'واتساب', color: '#25d366' },
   { icon: 'logo-youtube' as const, label: 'يوتيوب', color: '#ff0000' },
 ];
+
+function useBanners() {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  return useQuery<{ id: number; imageUrl: string; linkUrl: string | null }[]>({
+    queryKey: ['banners'],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/banners`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
 
 function useTeacherStudents(teacherId: number | undefined) {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -234,6 +249,7 @@ function StudentHome() {
   const { data: allTeachers, refetch: refetchT } = useGetTeachers();
   const { data: courses, isLoading: cl, refetch: refetchC } = useGetCourses({ isPublished: true });
   const { data: reviews, isLoading: rl, refetch: refetchR } = useGetReviews({ isPublished: true });
+  const { data: banners = [] } = useBanners();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -291,6 +307,9 @@ function StudentHome() {
             ))}
           </View>
         </LinearGradient>
+
+        {/* Banner carousel */}
+        {banners.length > 0 && <BannerCarousel banners={banners} autoPlayMs={4000} />}
 
         {/* Subjects */}
         <View style={styles.section}>
