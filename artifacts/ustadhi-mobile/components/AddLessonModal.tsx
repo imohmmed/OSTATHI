@@ -68,6 +68,10 @@ const defaultMcqOptions = (): McqOption[] => [
   { text: '', isCorrect: false },
 ];
 
+// ─── True/False question ────────────────────────────────────────────────────────
+interface TFQuestion { statement: string; correct: boolean | null }
+const defaultTFQuestion = (): TFQuestion => ({ statement: '', correct: null });
+
 // ─── Q&A pair ───────────────────────────────────────────────────────────────────
 interface QAPair { question: string; answer: string }
 
@@ -169,9 +173,8 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   const [mcqOptions, setMcqOptions] = useState<McqOption[]>(defaultMcqOptions());
   const [mcqPoints, setMcqPoints] = useState('5');
 
-  // ── True/False
-  const [tfStatement, setTfStatement] = useState('');
-  const [tfCorrect, setTfCorrect] = useState<boolean | null>(null);
+  // ── True/False (multi-question)
+  const [tfQuestions, setTfQuestions] = useState<TFQuestion[]>([defaultTFQuestion()]);
   const [tfPoints, setTfPoints] = useState('2');
 
   // ── Fill blank
@@ -195,7 +198,7 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
     setPdfSource('url'); setPdfUrl(''); setPdfFile(null);
     setRichHtml(''); setLinkUrl(''); setStreamUrl('');
     setMcqQuestion(''); setMcqOptions(defaultMcqOptions()); setMcqPoints('5');
-    setTfStatement(''); setTfCorrect(null); setTfPoints('2');
+    setTfQuestions([defaultTFQuestion()]); setTfPoints('2');
     setFbText(''); setFbAnswers([]);
     setQaPairs([{ question: '', answer: '' }]);
     setQuizTimeLimit('30'); setAssignInstructions(''); setAssignPoints('10');
@@ -275,11 +278,15 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
         if (!mcqQuestion.trim()) { Alert.alert('خطأ', 'نص السؤال مطلوب'); return; }
         contentText = JSON.stringify({ question: mcqQuestion, options: mcqOptions, points: Number(mcqPoints) });
         break;
-      case 'true_false':
-        if (!tfStatement.trim()) { Alert.alert('خطأ', 'نص العبارة مطلوب'); return; }
-        if (tfCorrect === null) { Alert.alert('خطأ', 'حدد الإجابة الصحيحة'); return; }
-        contentText = JSON.stringify({ statement: tfStatement, correct: tfCorrect, points: Number(tfPoints) });
+      case 'true_false': {
+        const unanswered = tfQuestions.findIndex(q => !q.statement.trim() || q.correct === null);
+        if (unanswered !== -1) {
+          Alert.alert('خطأ', `السؤال ${unanswered + 1}: اكتب العبارة وحدد الإجابة الصحيحة`);
+          return;
+        }
+        contentText = JSON.stringify({ questions: tfQuestions, pointsPerQuestion: Number(tfPoints) });
         break;
+      }
       case 'fill_blank':
         if (!fbText.trim()) { Alert.alert('خطأ', 'النص مطلوب'); return; }
         contentText = JSON.stringify({ text: fbText, answers: fbAnswers });
@@ -597,31 +604,114 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
                   </View>
                 )}
 
-                {/* ─ True / False form ─ */}
+                {/* ─ True / False form (multi-question) ─ */}
                 {selectedType === 'true_false' && (
                   <View style={S.formGroup}>
-                    <FLabel text="العبارة *" fs={fs} colors={colors} />
-                    <RInput value={tfStatement} onChange={setTfStatement} multiline placeholder="اكتب العبارة التي يجب تقييمها..." colors={colors} fs={fs} />
 
-                    <FLabel text="الإجابة الصحيحة *" fs={fs} colors={colors} />
-                    <View style={S.tfRow}>
-                      {[{ v: true, l: '✓  صح', c: '#22c55e' }, { v: false, l: '✗  خطأ', c: '#ef4444' }].map(btn => (
-                        <TouchableOpacity
-                          key={String(btn.v)}
-                          onPress={() => setTfCorrect(btn.v)}
-                          style={[S.tfBtn, { borderColor: tfCorrect === btn.v ? btn.c : colors.border, backgroundColor: tfCorrect === btn.v ? btn.c + '22' : colors.card }]}
-                        >
-                          <Text style={[{ color: tfCorrect === btn.v ? btn.c : colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs }]}>
-                            {btn.l}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                    {/* Counter + points per question */}
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={S.rowField}>
+                        <FLabel text="نقاط / سؤال" fs={fs} colors={colors} />
+                        <RInput value={tfPoints} onChange={setTfPoints} keyboardType="numeric" colors={colors} fs={fs} style={{ width: 64, textAlign: 'center' }} />
+                      </View>
+                      <View style={[S.tfCountBadge, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '40' }]}>
+                        <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>
+                          {tfQuestions.length} سؤال
+                        </Text>
+                        <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
+                          · {tfQuestions.length * Number(tfPoints || 2)} نقطة
+                        </Text>
+                      </View>
                     </View>
 
-                    <View style={S.rowField}>
-                      <FLabel text="النقاط" fs={fs} colors={colors} />
-                      <RInput value={tfPoints} onChange={setTfPoints} keyboardType="numeric" colors={colors} fs={fs} style={{ width: 80, textAlign: 'center' }} />
-                    </View>
+                    {/* Question cards */}
+                    {tfQuestions.map((q, idx) => (
+                      <View
+                        key={idx}
+                        style={[S.tfCard, {
+                          backgroundColor: colors.card,
+                          borderColor: q.correct === null
+                            ? colors.border
+                            : q.correct ? '#22c55e40' : '#ef444440',
+                        }]}
+                      >
+                        {/* Card header */}
+                        <View style={S.tfCardHeader}>
+                          {tfQuestions.length > 1 && (
+                            <TouchableOpacity
+                              onPress={() => setTfQuestions(prev => prev.filter((_, i) => i !== idx))}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                            </TouchableOpacity>
+                          )}
+                          <View style={[S.tfNumBadge, { backgroundColor: colors.primary }]}>
+                            <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>
+                              {idx + 1}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Statement input */}
+                        <TextInput
+                          value={q.statement}
+                          onChangeText={t =>
+                            setTfQuestions(prev => prev.map((x, i) => i === idx ? { ...x, statement: t } : x))
+                          }
+                          placeholder="اكتب العبارة هنا..."
+                          placeholderTextColor={colors.mutedForeground}
+                          multiline
+                          textAlign="right"
+                          style={[S.input, {
+                            color: colors.foreground, borderColor: colors.border + '80',
+                            backgroundColor: 'transparent',
+                            fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs,
+                            minHeight: 72, textAlignVertical: 'top',
+                          }]}
+                        />
+
+                        {/* صح / خطأ answer picker */}
+                        <View style={S.tfRow}>
+                          {[
+                            { v: true,  label: 'صح',  icon: 'checkmark-circle' as const, color: '#22c55e' },
+                            { v: false, label: 'خطأ', icon: 'close-circle'     as const, color: '#ef4444' },
+                          ].map(btn => {
+                            const selected = q.correct === btn.v;
+                            return (
+                              <TouchableOpacity
+                                key={String(btn.v)}
+                                onPress={() =>
+                                  setTfQuestions(prev => prev.map((x, i) => i === idx ? { ...x, correct: btn.v } : x))
+                                }
+                                style={[S.tfBtn, {
+                                  borderColor: selected ? btn.color : colors.border,
+                                  backgroundColor: selected ? btn.color + '22' : colors.background,
+                                }]}
+                              >
+                                <Ionicons name={btn.icon} size={22} color={selected ? btn.color : colors.mutedForeground} />
+                                <Text style={[{
+                                  color: selected ? btn.color : colors.foreground,
+                                  fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs,
+                                }]}>
+                                  {btn.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ))}
+
+                    {/* Add question button */}
+                    <TouchableOpacity
+                      onPress={() => setTfQuestions(prev => [...prev, defaultTFQuestion()])}
+                      style={[S.addPairBtn, { borderColor: colors.primary + '50', backgroundColor: colors.primary + '10' }]}
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                      <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
+                        إضافة سؤال
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -790,8 +880,12 @@ const S = StyleSheet.create({
   mcqInput: { flex: 1, paddingVertical: 4 },
 
   // True/False
+  tfCountBadge: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
+  tfCard: { borderRadius: 18, borderWidth: 1.5, padding: 14, gap: 10 },
+  tfCardHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  tfNumBadge: { width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   tfRow: { flexDirection: 'row-reverse', gap: 12 },
-  tfBtn: { flex: 1, alignItems: 'center', paddingVertical: 16, borderRadius: 14, borderWidth: 2 },
+  tfBtn: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 2 },
 
   // Fill blank
   fbRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
