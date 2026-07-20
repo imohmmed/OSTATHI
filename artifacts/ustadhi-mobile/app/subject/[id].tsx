@@ -180,21 +180,25 @@ export default function SubjectDetailScreen() {
         <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs, flex: 1, textAlign: 'center' }]}>
           {subject?.name ?? decodeURIComponent(name ?? '')}
         </Text>
-        {/* Action buttons */}
-        <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => setShowAddTeacher(true)}
-            style={[styles.addBtn, { backgroundColor: c.primary }]}
-          >
-            <Ionicons name="add" size={18} color={c.primaryForeground} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowLinkTeacher(true)}
-            style={[styles.addBtn, { backgroundColor: `${c.primary}20`, borderWidth: 1, borderColor: c.primary }]}
-          >
-            <Ionicons name="link" size={16} color={c.primary} />
-          </TouchableOpacity>
-        </View>
+        {/* Action buttons — admin only */}
+        {adminToken ? (
+          <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => setShowAddTeacher(true)}
+              style={[styles.addBtn, { backgroundColor: c.primary }]}
+            >
+              <Ionicons name="add" size={18} color={c.primaryForeground} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowLinkTeacher(true)}
+              style={[styles.addBtn, { backgroundColor: `${c.primary}20`, borderWidth: 1, borderColor: c.primary }]}
+            >
+              <Ionicons name="link" size={16} color={c.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       {/* Subject info banner */}
@@ -224,8 +228,10 @@ export default function SubjectDetailScreen() {
         keyExtractor={(t) => String(t.id)}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => router.push({ pathname: '/admin/teacher-detail/[id]' as any, params: { id: item.id } })}
-            activeOpacity={0.75}
+            onPress={adminToken
+              ? () => router.push({ pathname: '/admin/teacher-detail/[id]' as any, params: { id: item.id } })
+              : undefined}
+            activeOpacity={adminToken ? 0.75 : 1}
             style={[styles.teacherRow, { backgroundColor: c.card, borderColor: c.border }]}
           >
             {item.avatarUrl ? (
@@ -255,7 +261,7 @@ export default function SubjectDetailScreen() {
                 <Text style={[{ color: c.destructive, fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }]}>موقوف</Text>
               </View>
             )}
-            <Ionicons name="chevron-back" size={16} color={c.mutedForeground} />
+            {adminToken && <Ionicons name="chevron-back" size={16} color={c.mutedForeground} />}
           </TouchableOpacity>
         )}
         ListHeaderComponent={
@@ -270,15 +276,17 @@ export default function SubjectDetailScreen() {
               <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, textAlign: 'center' }]}>
                 لا يوجد أساتذة في هذه المادة بعد
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowAddTeacher(true)}
-                style={[styles.addFirstBtn, { backgroundColor: c.primary }]}
-              >
-                <Ionicons name="add" size={18} color={c.primaryForeground} />
-                <Text style={[{ color: c.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                  إضافة أستاذ
-                </Text>
-              </TouchableOpacity>
+              {adminToken && (
+                <TouchableOpacity
+                  onPress={() => setShowAddTeacher(true)}
+                  style={[styles.addFirstBtn, { backgroundColor: c.primary }]}
+                >
+                  <Ionicons name="add" size={18} color={c.primaryForeground} />
+                  <Text style={[{ color: c.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
+                    إضافة أستاذ
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null
         }
