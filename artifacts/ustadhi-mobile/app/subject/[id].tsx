@@ -12,7 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -253,7 +254,13 @@ export default function SubjectDetailScreen() {
 
   return (
     <View style={[S.container, { backgroundColor: c.background }]}>
-      <Stack.Screen options={{ title: subject?.name ?? decodeURIComponent(name ?? ''), headerBackTitle: 'رجوع' }} />
+      <PageHeader
+        title={subject?.name ?? decodeURIComponent(name ?? '') ?? 'المادة'}
+        onBack={() => router.back()}
+        backgroundColor={c.background}
+        tintColor={c.foreground}
+        borderColor={c.border}
+      />
 
       {/* Admin action buttons row */}
       {adminToken && (

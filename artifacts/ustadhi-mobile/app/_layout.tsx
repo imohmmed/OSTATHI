@@ -57,63 +57,14 @@ function RootLayoutNav() {
         name="login"
         options={{ headerShown: false, animation: 'slide_from_bottom' }}
       />
-      <Stack.Screen
-        name="subjects"
-        options={{
-          title: 'المواد الدراسية',
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-        }}
-      />
-      <Stack.Screen
-        name="subject/[id]"
-        options={{
-          title: 'أساتذة المادة',
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-        }}
-      />
-      <Stack.Screen
-        name="teacher/[id]"
-        options={{
-          title: 'الأستاذ',
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-        }}
-      />
-      <Stack.Screen
-        name="course/[id]"
-        options={{
-          title: 'تفاصيل الدورة',
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-          headerStyle: { backgroundColor: '#101D36' },
-          headerTintColor: '#ffffff',
-          headerTitleStyle: { color: '#ffffff', fontFamily: 'Tajawal_700Bold' },
-        }}
-      />
+      <Stack.Screen name="subjects" options={{ headerShown: false }} />
+      <Stack.Screen name="subject/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="teacher/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="course/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="all-courses" options={{ headerShown: false }} />
       <Stack.Screen name="student/[id]" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="conversation/[teacherId]"
-        options={{
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-          headerStyle: { backgroundColor: '#101D36' },
-          headerTintColor: '#ffffff',
-          headerTitleStyle: { fontFamily: 'Tajawal_700Bold', color: '#ffffff' },
-        }}
-      />
-      <Stack.Screen
-        name="inbox/[studentId]"
-        options={{
-          headerBackTitle: 'رجوع',
-          headerTitleAlign: 'center',
-          headerStyle: { backgroundColor: '#101D36' },
-          headerTintColor: '#ffffff',
-          headerTitleStyle: { fontFamily: 'Tajawal_700Bold', color: '#ffffff' },
-        }}
-      />
+      <Stack.Screen name="conversation/[teacherId]" options={{ headerShown: false }} />
+      <Stack.Screen name="inbox/[studentId]" options={{ headerShown: false }} />
     </Stack>
   );
 }

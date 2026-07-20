@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import DraggableFlatList, {
@@ -495,6 +496,12 @@ export default function CourseDetailScreen() {
   // ── Render ──────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <PageHeader
+        title={(course as any)?.title ?? 'الدورة'}
+        onBack={() => router.back()}
+        backgroundColor="#101D36"
+        tintColor="#ffffff"
+      />
       <DraggableFlatList<Lesson>
         data={orderedLessons}
         keyExtractor={(item) => String(item.id)}

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { PageHeader } from '@/components/PageHeader';
 
 const NOTES_KEY = (id: number) => `@ustadhi_teacher_notes_${id}`;
 const API = () => {
@@ -404,23 +404,19 @@ export default function StudentDetailScreen() {
     { icon: 'school' as const, label: 'المرحلة الدراسية', value: student.gradeLevel },
   ].filter(r => r.value) : [];
 
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 8);
-
   return (
     <ScrollView
       style={[sty.root, { backgroundColor: colors.background }]}
       contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Navbar (single) ── */}
-      <View style={[sty.navbar, { paddingTop: topPad, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={sty.backBtn}>
-          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }}>رجوع</Text>
-        </TouchableOpacity>
-        <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }}>ملف الطالب</Text>
-        <View style={{ width: 72 }} />
-      </View>
+      <PageHeader
+        title="ملف الطالب"
+        onBack={() => router.back()}
+        backgroundColor={colors.background}
+        tintColor={colors.foreground}
+        borderColor={colors.border}
+      />
 
       {/* ── Hero ── */}
       <LinearGradient colors={['#101D36', '#1a2f5c']} style={sty.hero}>

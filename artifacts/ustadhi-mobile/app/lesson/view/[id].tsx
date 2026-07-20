@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as FileSystem from 'expo-file-system';
@@ -478,16 +479,12 @@ export default function LessonViewerScreen() {
 
   return (
     <View style={[S.screen, { backgroundColor: colors.background }]}>
-      {/* ── Nav header ── */}
-      <View style={[S.navBar, { paddingTop: insets.top + 6, backgroundColor: '#101D36' }]}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="arrow-forward" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={[S.navTitle, { fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]} numberOfLines={1}>
-          {lesson?.title ?? 'المحاضرة'}
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <PageHeader
+        title={lesson?.title ?? 'المحاضرة'}
+        onBack={() => router.back()}
+        backgroundColor="#101D36"
+        tintColor="#ffffff"
+      />
 
       <FlatList
         data={lessons}

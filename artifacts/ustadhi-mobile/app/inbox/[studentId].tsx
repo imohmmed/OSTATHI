@@ -20,7 +20,8 @@ import {
   View,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -164,13 +165,18 @@ export default function InboxStudentPage() {
 
   return (
     <>
-      <Stack.Screen options={{ title: studentName }} />
-
       <KeyboardAvoidingView
         behavior="padding"
         style={[styles.container, { backgroundColor: c.background }]}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
+        <PageHeader
+          title={studentName}
+          onBack={() => router.back()}
+          backgroundColor={c.background}
+          tintColor={c.foreground}
+          borderColor={c.border}
+        />
         {/* شريط هوية المرسل */}
         <View style={[styles.replierBar, { backgroundColor: `${colors.gold}15`, borderBottomColor: c.border }]}>
           <Ionicons

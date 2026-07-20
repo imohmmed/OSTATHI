@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
@@ -157,6 +158,12 @@ export default function TeacherDetailScreen() {
     >
       {/* Hero */}
       <LinearGradient colors={['#101D36', '#1e3a6e']} style={styles.hero}>
+        <PageHeader
+          title="الأستاذ"
+          onBack={() => router.back()}
+          backgroundColor="transparent"
+          tintColor="#ffffff"
+        />
         <View style={[styles.avatar, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
           {isLoading ? (
             <SkeletonBox width={80} height={80} borderRadius={40} />
@@ -400,7 +407,7 @@ export default function TeacherDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  hero: { alignItems: 'center', paddingTop: 24, paddingBottom: 28, gap: 10, paddingHorizontal: 20 },
+  hero: { alignItems: 'center', paddingTop: 0, paddingBottom: 28, gap: 10, paddingHorizontal: 20 },
   avatar: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
   initials: {},
   name: {},

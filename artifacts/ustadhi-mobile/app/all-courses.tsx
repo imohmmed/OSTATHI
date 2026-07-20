@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
@@ -28,7 +29,6 @@ export default function AllCoursesScreen() {
   const insets = useSafeAreaInsets();
   const { fontScale } = useApp();
   const fs = fontScale;
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { user, isLoggedIn } = useAuth();
 
@@ -105,26 +105,26 @@ export default function AllCoursesScreen() {
 
   return (
     <View style={[S.container, { backgroundColor: colors.background }]}>
-      {/* ── Top bar ── */}
-      <View style={[S.topBar, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="chevron-forward" size={22} color={colors.foreground} />
-        </TouchableOpacity>
-        <Text style={[S.title, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
-          جميع الدورات
-        </Text>
-        <TouchableOpacity
-          onPress={() => setShowFilters(!showFilters)}
-          style={[S.filterBtn, { backgroundColor: activeFiltersCount > 0 ? colors.primary : colors.card, borderColor: colors.border }]}
-        >
-          <Ionicons name="options-outline" size={18} color={activeFiltersCount > 0 ? colors.primaryForeground : colors.foreground} />
-          {activeFiltersCount > 0 && (
-            <View style={[S.filterBadge, { backgroundColor: '#D4A843' }]}>
-              <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'Tajawal_700Bold' }}>{activeFiltersCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <PageHeader
+        title="جميع الدورات"
+        onBack={() => router.back()}
+        backgroundColor={colors.background}
+        tintColor={colors.foreground}
+        borderColor={colors.border}
+        right={
+          <TouchableOpacity
+            onPress={() => setShowFilters(!showFilters)}
+            style={[S.filterBtn, { backgroundColor: activeFiltersCount > 0 ? colors.primary : colors.card, borderColor: colors.border }]}
+          >
+            <Ionicons name="options-outline" size={18} color={activeFiltersCount > 0 ? colors.primaryForeground : colors.foreground} />
+            {activeFiltersCount > 0 && (
+              <View style={[S.filterBadge, { backgroundColor: '#D4A843' }]}>
+                <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'Tajawal_700Bold' }}>{activeFiltersCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        }
+      />
 
       {/* ── Filter panel ── */}
       {showFilters && (

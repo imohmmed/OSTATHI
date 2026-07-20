@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useGetSubjects } from '@workspace/api-client-react';
@@ -67,7 +68,13 @@ export default function SubjectsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ title: 'المواد الدراسية', headerBackTitle: 'رجوع' }} />
+      <PageHeader
+        title="المواد الدراسية"
+        onBack={() => router.back()}
+        backgroundColor={colors.background}
+        tintColor={colors.foreground}
+        borderColor={colors.border}
+      />
       {isLoading ? (
         <View style={styles.loadingWrap}>
           <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
