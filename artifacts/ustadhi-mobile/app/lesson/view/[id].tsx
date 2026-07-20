@@ -214,12 +214,15 @@ export default function LessonViewerScreen() {
     try { player.currentTime = savedPosition; } catch {}
   }, [progressLoaded, savedPosition]); // eslint-disable-line
 
-  // Auto-hide controls
+  // Auto-hide controls — only when playing; stay visible when paused
   const resetControlsTimer = useCallback(() => {
     if (controlsTimer.current) clearTimeout(controlsTimer.current);
     setControlsVisible(true);
-    controlsTimer.current = setTimeout(() => setControlsVisible(false), 3500);
-  }, []);
+    controlsTimer.current = setTimeout(() => {
+      // Don't hide if paused
+      if (player?.playing) setControlsVisible(false);
+    }, 3500);
+  }, [player]);
 
   useEffect(() => {
     resetControlsTimer();
@@ -237,8 +240,17 @@ export default function LessonViewerScreen() {
 
   const togglePlayPause = () => {
     if (!player) return;
-    if (isPlaying) { player.pause(); } else { player.play(); }
-    resetControlsTimer();
+    // Use player.playing directly — never rely on stale React state
+    if (player.playing) {
+      player.pause();
+      setIsPlaying(false);          // optimistic update
+      setControlsVisible(true);    // keep controls shown while paused
+      if (controlsTimer.current) clearTimeout(controlsTimer.current);
+    } else {
+      player.play();
+      setIsPlaying(true);
+      resetControlsTimer();
+    }
   };
 
   const handleSeekTouch = (locationX: number) => {
@@ -282,8 +294,9 @@ export default function LessonViewerScreen() {
     }, 5000);
     return () => {
       if (progressTimer.current) clearInterval(progressTimer.current);
-      // Save on unmount
+      // Pause + save on unmount (navigation away)
       try {
+        player.pause();
         const pos = player.currentTime ?? 0;
         if (pos > 0) saveProgress(pos);
       } catch {}
