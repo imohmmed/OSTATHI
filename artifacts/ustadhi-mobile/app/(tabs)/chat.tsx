@@ -17,6 +17,7 @@ import { TeacherCard } from '@/components/TeacherCard';
 import { SkeletonRow } from '@/components/SkeletonLoader';
 import { useGetTeachers } from '@workspace/api-client-react';
 import { useTeacherInbox } from '@/hooks/useMessages';
+import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import colors from '@/constants/colors';
 
@@ -235,10 +236,163 @@ function TeacherInboxList() {
 }
 
 // ─────────────────────────────────────────────
+// ADMIN: كل المحادثات من جميع الأساتذة
+// ─────────────────────────────────────────────
+interface AdminConv {
+  key: string;
+  studentId: number;
+  studentName: string;
+  teacherId: number;
+  teacherName: string;
+  lastMessage: string;
+  lastTime: string;
+  unread: number;
+}
+
+function useAdminMessages(adminToken: string | undefined) {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  return useQuery<any[]>({
+    queryKey: ['admin-messages'],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/mobile/admin/messages`, {
+        headers: { 'x-admin-token': adminToken ?? '' },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!adminToken,
+    refetchInterval: 15000,
+  });
+}
+
+function AdminInboxList() {
+  const c = useColors();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useApp();
+  const { user } = useAuth();
+  const router = useRouter();
+  const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+
+  const { data: allMessages, isLoading } = useAdminMessages((user as any)?.adminToken);
+
+  const conversations = React.useMemo<AdminConv[]>(() => {
+    if (!allMessages) return [];
+    const map = new Map<string, AdminConv>();
+    for (const msg of allMessages) {
+      const key = `${msg.fromStudentId}-${msg.toTeacherId}`;
+      const existing = map.get(key);
+      const unread = !msg.isReadByTeacher ? 1 : 0;
+      if (!existing) {
+        map.set(key, {
+          key,
+          studentId: msg.fromStudentId,
+          studentName: msg.studentName ?? `طالب #${msg.fromStudentId}`,
+          teacherId: msg.toTeacherId,
+          teacherName: msg.teacherName ?? `أستاذ #${msg.toTeacherId}`,
+          lastMessage: msg.text,
+          lastTime: msg.createdAt,
+          unread,
+        });
+      } else {
+        existing.unread += unread;
+        if (msg.createdAt > existing.lastTime) {
+          existing.lastMessage = msg.text;
+          existing.lastTime = msg.createdAt;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.lastTime.localeCompare(a.lastTime));
+  }, [allMessages]);
+
+  const totalUnread = conversations.reduce((a, c) => a + c.unread, 0);
+
+  return (
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: c.border }]}>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.screenTitle, { color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
+            كل الرسائل
+          </Text>
+          <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
+            جميع محادثات المنصة
+          </Text>
+        </View>
+        {totalUnread > 0 && (
+          <View style={[styles.unreadBadge, { backgroundColor: c.destructive }]}>
+            <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>{totalUnread}</Text>
+          </View>
+        )}
+      </View>
+
+      <FlatList
+        data={conversations}
+        keyExtractor={(item) => item.key}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({
+                pathname: '/inbox/[studentId]' as any,
+                params: {
+                  studentId: item.studentId,
+                  studentName: encodeURIComponent(item.studentName),
+                  teacherId: item.teacherId,
+                  teacherName: encodeURIComponent(item.teacherName),
+                },
+              });
+            }}
+            style={[styles.convRow, { backgroundColor: c.card, borderColor: c.border }]}
+          >
+            <View style={[styles.convAvatar, { backgroundColor: c.primary }]}>
+              <Text style={[{ color: c.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 16 }]}>
+                {item.studentName[0]}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs, textAlign: 'right' }]}>
+                {item.studentName}
+              </Text>
+              <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs, textAlign: 'right' }]}>
+                مع {item.teacherName}
+              </Text>
+              <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, textAlign: 'right' }]} numberOfLines={1}>
+                {item.lastMessage}
+              </Text>
+            </View>
+            {item.unread > 0 && (
+              <View style={[styles.msgBadge, { backgroundColor: colors.gold }]}>
+                <Text style={[{ color: colors.navy, fontFamily: 'Tajawal_700Bold', fontSize: 11 * fs }]}>{item.unread}</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-back" size={16} color={c.mutedForeground} />
+          </TouchableOpacity>
+        )}
+        ListHeaderComponent={isLoading ? <>{[1, 2, 3].map((i) => <SkeletonRow key={i} />)}</> : null}
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubbles-outline" size={48} color={c.mutedForeground} />
+              <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, textAlign: 'center' }]}>
+                لا توجد محادثات بعد
+              </Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
 // ROOT — role-aware
 // ─────────────────────────────────────────────
 export default function ChatScreen() {
   const { user } = useAuth();
+  if (user?.role === 'admin') return <AdminInboxList />;
   if (user?.role === 'teacher' || user?.role === 'assistant') return <TeacherInboxList />;
   return <StudentChatList />;
 }

@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import {
   studentsTable,
@@ -8,8 +8,21 @@ import {
   subjectsTable,
   parentsTable,
   assistantsTable,
+  coursesTable,
+  messagesTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+
+// ── Mobile admin auth middleware ──────────────────────
+function requireMobileAdmin(req: Request, res: Response, next: NextFunction): void {
+  const token = req.headers["x-admin-token"] as string | undefined;
+  const adminPassword = (global as any).__adminPassword ?? process.env.ADMIN_PASSWORD ?? "admin123";
+  if (!token || token !== adminPassword) {
+    res.status(401).json({ error: "غير مصرح" });
+    return;
+  }
+  next();
+}
 
 const router: IRouter = Router();
 
@@ -138,11 +151,59 @@ router.post("/mobile/login", async (req, res): Promise<void> => {
       fullName: "المدير",
       phone: "",
       role: "admin",
+      adminToken: adminPassword,
     });
     return;
   }
 
   res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+});
+
+// ── Mobile Admin: إحصائيات عامة ──────────────────────
+router.get("/mobile/admin/stats", requireMobileAdmin, async (req, res): Promise<void> => {
+  const [
+    [{ count: totalStudents }],
+    [{ count: totalTeachers }],
+    [{ count: totalCourses }],
+  ] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(studentsTable),
+    db.select({ count: sql<number>`count(*)::int` }).from(teachersTable),
+    db.select({ count: sql<number>`count(*)::int` }).from(coursesTable),
+  ]);
+  res.json({ totalStudents, totalTeachers, totalCourses });
+});
+
+// ── Mobile Admin: كل الطلاب ───────────────────────────
+router.get("/mobile/admin/students", requireMobileAdmin, async (req, res): Promise<void> => {
+  const rows = await db.select({
+    id: studentsTable.id,
+    fullName: studentsTable.fullName,
+    phone: studentsTable.phone,
+    gradeLevel: studentsTable.gradeLevel,
+    isActive: studentsTable.isActive,
+    parentName: studentsTable.parentName,
+    parentPhone: studentsTable.parentPhone,
+  }).from(studentsTable).orderBy(studentsTable.fullName);
+  res.json(rows);
+});
+
+// ── Mobile Admin: كل المحادثات (جميع الأساتذة) ────────
+router.get("/mobile/admin/messages", requireMobileAdmin, async (req, res): Promise<void> => {
+  const rows = await db.select({
+    id: messagesTable.id,
+    fromStudentId: messagesTable.fromStudentId,
+    toTeacherId: messagesTable.toTeacherId,
+    text: messagesTable.text,
+    createdAt: messagesTable.createdAt,
+    isReadByTeacher: messagesTable.isReadByTeacher,
+    studentName: studentsTable.fullName,
+    teacherName: teachersTable.fullName,
+  })
+    .from(messagesTable)
+    .leftJoin(studentsTable, eq(messagesTable.fromStudentId, studentsTable.id))
+    .leftJoin(teachersTable, eq(messagesTable.toTeacherId, teachersTable.id))
+    .orderBy(messagesTable.createdAt);
+  res.json(rows);
 });
 
 export default router;

@@ -129,7 +129,7 @@ function ClassicTabLayout({ isTeacher }: { isTeacher: boolean }) {
 
 export default function TabLayout() {
   const { user } = useAuth();
-  const isTeacher = user?.role === 'teacher';
+  const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
 
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout isTeacher={isTeacher} />;

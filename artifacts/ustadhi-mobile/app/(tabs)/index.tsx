@@ -387,10 +387,107 @@ function StudentHome() {
 }
 
 // ─────────────────────────────────────────────
+// ADMIN HOME DASHBOARD
+// ─────────────────────────────────────────────
+function useAdminStats(adminToken: string | undefined) {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  return useQuery<{ totalStudents: number; totalTeachers: number; totalCourses: number }>({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/mobile/admin/stats`, {
+        headers: { 'x-admin-token': adminToken ?? '' },
+      });
+      if (!res.ok) return { totalStudents: 0, totalTeachers: 0, totalCourses: 0 };
+      return res.json();
+    },
+    enabled: !!adminToken,
+  });
+}
+
+function AdminHome() {
+  const colors = useColors();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useApp();
+  const { user } = useAuth();
+  const fs = fontScale;
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: stats, refetch } = useAdminStats((user as any)?.adminToken);
+
+  const onRefresh = async () => { setRefreshing(true); await refetch(); setRefreshing(false); };
+
+  const statCards = [
+    { value: stats?.totalStudents ?? '—', label: 'طالب', icon: 'people' as const, color: '#3b82f6' },
+    { value: stats?.totalTeachers ?? '—', label: 'أستاذ', icon: 'person' as const, color: '#10b981' },
+    { value: stats?.totalCourses ?? '—', label: 'كورس', icon: 'book' as const, color: '#f59e0b' },
+  ];
+
+  const quickActions = [
+    { icon: 'people' as const, label: 'الطلاب', color: '#3b82f6', route: '/(tabs)/students' },
+    { icon: 'book' as const, label: 'الكورسات', color: '#f59e0b', route: '/(tabs)/courses' },
+    { icon: 'chatbubble-ellipses' as const, label: 'الرسائل', color: '#8b5cf6', route: '/(tabs)/chat' },
+  ];
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+      >
+        {/* Admin hero */}
+        <LinearGradient
+          colors={['#101D36', '#1e3a6e', '#2d5299']}
+          style={[styles.teacherHero, { paddingTop: topPad + 20 }]}
+        >
+          <View style={[styles.teacherAvatar, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <Ionicons name="shield-checkmark" size={32} color="#D4A843" />
+          </View>
+          <Text style={[{ fontFamily: 'Tajawal_900Black', color: '#fff', fontSize: 20 * fs }]}>
+            لوحة تحكم المدير
+          </Text>
+          <Text style={[{ fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 13 * fs }]}>
+            منصة استاذي التعليمية
+          </Text>
+
+          {/* Stats row */}
+          <View style={styles.teacherStatsRow}>
+            {statCards.map((s) => (
+              <View key={s.label} style={styles.teacherStatItem}>
+                <Text style={[{ fontFamily: 'Tajawal_700Bold', color: '#D4A843', fontSize: 26 * fs }]}>{String(s.value)}</Text>
+                <Text style={[{ fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 12 * fs }]}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
+
+        {/* Quick actions */}
+        <View style={styles.quickActions}>
+          {quickActions.map((a) => (
+            <TouchableOpacity
+              key={a.label}
+              onPress={() => router.push(a.route as any)}
+              style={[styles.quickActionBtn, { backgroundColor: a.color + '15', borderColor: a.color + '30' }]}
+            >
+              <Ionicons name={a.icon} size={24} color={a.color} />
+              <Text style={[{ fontFamily: 'Tajawal_500Medium', color: a.color, fontSize: 12 * fs }]}>{a.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
 // ROOT EXPORT — role-aware
 // ─────────────────────────────────────────────
 export default function HomeScreen() {
   const { user } = useAuth();
+  if (user?.role === 'admin') return <AdminHome />;
   if (user?.role === 'teacher') return <TeacherHome />;
   return <StudentHome />;
 }

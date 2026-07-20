@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type UserRole = 'student' | 'teacher' | 'assistant' | 'parent';
+export type UserRole = 'student' | 'teacher' | 'assistant' | 'parent' | 'admin';
 
 export interface AuthUser {
   id: number;
@@ -11,6 +11,8 @@ export interface AuthUser {
   gradeLevel?: string;
   bio?: string;
   avatarUrl?: string;
+  // أدمن
+  adminToken?: string;
   // طالب
   studentId?: number;
   studentName?: string;

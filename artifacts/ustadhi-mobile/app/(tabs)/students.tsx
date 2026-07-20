@@ -45,6 +45,22 @@ function useTeacherStudents(teacherId: number | undefined) {
   });
 }
 
+function useAdminStudents(adminToken: string | undefined) {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const base = domain ? `https://${domain}` : '';
+  return useQuery<StudentItem[]>({
+    queryKey: ['admin-students'],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/mobile/admin/students`, {
+        headers: { 'x-admin-token': adminToken ?? '' },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!adminToken,
+  });
+}
+
 export default function StudentsScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -55,10 +71,11 @@ export default function StudentsScreen() {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const isAdmin = user?.role === 'admin';
 
-  const { data: students, isLoading, refetch } = useTeacherStudents(
-    user?.role === 'teacher' ? user.id : undefined
-  );
+  const teacherQ = useTeacherStudents(user?.role === 'teacher' ? user.id : undefined);
+  const adminQ = useAdminStudents(isAdmin ? (user as any).adminToken : undefined);
+  const { data: students, isLoading, refetch } = isAdmin ? adminQ : teacherQ;
 
   const filtered = (students ?? []).filter((s) =>
     s.fullName.includes(search) || s.gradeLevel.includes(search)
@@ -75,7 +92,7 @@ export default function StudentsScreen() {
       {/* Header */}
       <View style={[styles.topBar, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
         <Text style={[styles.screenTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 20 * fs }]}>
-          طلابي
+          {isAdmin ? 'كل الطلاب' : 'طلابي'}
         </Text>
         {!isLoading && (
           <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
