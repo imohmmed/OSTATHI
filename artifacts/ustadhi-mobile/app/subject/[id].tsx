@@ -279,15 +279,6 @@ export default function SubjectDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom, paddingTop: 8 }}
       >
-        {/* Description banner (no name — already in nav) */}
-        {subject?.description ? (
-          <View style={[S.descBanner, { backgroundColor: `${c.primary}0C`, borderColor: `${c.primary}20` }]}>
-            <Text style={{ fontSize: 28 }}>{subject.icon ?? '📚'}</Text>
-            <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, flex: 1, textAlign: 'right', lineHeight: 20 }]}>
-              {subject.description}
-            </Text>
-          </View>
-        ) : null}
 
         {/* Loading state */}
         {isLoading && (
