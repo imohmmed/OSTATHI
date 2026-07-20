@@ -4,8 +4,11 @@ import {
   lessonsTable,
   lessonReactionsTable,
   lessonVideoProgressTable,
+  studentsTable,
+  coursesTable,
 } from "@workspace/db";
-import { eq, and, count, sql } from "drizzle-orm";
+import { eq, and, count, sql, desc } from "drizzle-orm";
+import { studentsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -51,15 +54,40 @@ router.post("/lessons/:id/react", async (req, res): Promise<void> => {
     return;
   }
 
+  const { feedback } = req.body; // optional dislike description
+
   // Upsert
   await db.insert(lessonReactionsTable)
-    .values({ lessonId, studentId, reaction })
+    .values({ lessonId, studentId, reaction, feedback: feedback ?? null })
     .onConflictDoUpdate({
       target: [lessonReactionsTable.lessonId, lessonReactionsTable.studentId],
-      set: { reaction },
+      set: { reaction, feedback: feedback ?? null },
     });
 
   res.json({ ok: true });
+});
+
+// ── GET /admin/reactions — all reactions for admin feedback page ───────────────
+import { requireAdmin } from "./admin";
+router.get("/admin/reactions", requireAdmin, async (req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      id: lessonReactionsTable.id,
+      reaction: lessonReactionsTable.reaction,
+      feedback: lessonReactionsTable.feedback,
+      createdAt: lessonReactionsTable.createdAt,
+      lessonId: lessonReactionsTable.lessonId,
+      lessonTitle: lessonsTable.title,
+      courseTitle: coursesTable.title,
+      studentId: lessonReactionsTable.studentId,
+      studentName: studentsTable.fullName,
+    })
+    .from(lessonReactionsTable)
+    .leftJoin(lessonsTable, eq(lessonReactionsTable.lessonId, lessonsTable.id))
+    .leftJoin(coursesTable, eq(lessonsTable.courseId, coursesTable.id))
+    .leftJoin(studentsTable, eq(lessonReactionsTable.studentId, studentsTable.id))
+    .orderBy(desc(lessonReactionsTable.createdAt));
+  res.json(rows);
 });
 
 // ── GET /lessons/:id/progress?studentId=X ────────────────────────────────────

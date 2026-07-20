@@ -11,8 +11,10 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -26,6 +28,7 @@ import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useGetCourse } from '@workspace/api-client-react';
 
 const API_BASE = (() => {
@@ -71,7 +74,8 @@ export default function LessonViewerScreen() {
 
   const router = useRouter();
   const colors = useColors();
-  const { fontScale, user } = useApp();
+  const { fontScale } = useApp();
+  const { user } = useAuth();
   const fs = fontScale;
   const insets = useSafeAreaInsets();
 
@@ -87,6 +91,10 @@ export default function LessonViewerScreen() {
   const [dislikes, setDislikes] = useState(0);
   const [myReaction, setMyReaction] = useState<'like' | 'dislike' | null>(null);
   const [reactLoading, setReactLoading] = useState(false);
+  // Dislike feedback modal
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSending, setFeedbackSending] = useState(false);
 
   // ── Download state ──────────────────────────────────────────────────────────
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
@@ -205,21 +213,29 @@ export default function LessonViewerScreen() {
   }, [player, isVideoLesson, saveProgress]);
 
   // ─── React (like / dislike) ─────────────────────────────────────────────────
-  const handleReact = async (reaction: 'like' | 'dislike') => {
+  const handleReact = async (reaction: 'like' | 'dislike', feedback?: string) => {
     if (!studentId) { Alert.alert('تنبيه', 'يجب تسجيل الدخول أولاً'); return; }
     if (reactLoading) return;
-    setReactLoading(true);
 
+    // إذا دوس "لم يعجبني" وليس إلغاء → نفتح المودال أولاً
+    if (reaction === 'dislike' && myReaction !== 'dislike' && feedback === undefined) {
+      setFeedbackVisible(true);
+      return;
+    }
+
+    setReactLoading(true);
     const newReaction = myReaction === reaction ? null : reaction;
 
     // Optimistic update
     setMyReaction(newReaction);
     setLikes(prev => {
       if (reaction === 'like') return newReaction ? prev + 1 : prev - 1;
+      if (myReaction === 'like') return prev - 1; // switching from like to dislike
       return prev;
     });
     setDislikes(prev => {
       if (reaction === 'dislike') return newReaction ? prev + 1 : prev - 1;
+      if (myReaction === 'dislike') return prev - 1;
       return prev;
     });
 
@@ -227,11 +243,20 @@ export default function LessonViewerScreen() {
       await fetch(`${API_BASE}/lessons/${lessonId}/react`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, reaction: newReaction }),
+        body: JSON.stringify({ studentId, reaction: newReaction, feedback: feedback ?? null }),
       });
       await fetchReactions(); // sync actual counts
     } catch {}
     setReactLoading(false);
+  };
+
+  // ─── Submit dislike feedback ─────────────────────────────────────────────────
+  const handleSubmitFeedback = async () => {
+    setFeedbackSending(true);
+    await handleReact('dislike', feedbackText.trim());
+    setFeedbackSending(false);
+    setFeedbackVisible(false);
+    setFeedbackText('');
   };
 
   // ─── Download ───────────────────────────────────────────────────────────────
@@ -394,7 +419,7 @@ export default function LessonViewerScreen() {
             color={myReaction === 'like' ? '#22c55e' : colors.mutedForeground}
           />
           <Text style={[S.actionLabel, { color: myReaction === 'like' ? '#22c55e' : colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>
-            {likes > 0 ? likes : 'إعجاب'}
+            {likes > 0 ? `👍 ${likes}` : '👍'}
           </Text>
         </TouchableOpacity>
 
@@ -408,7 +433,7 @@ export default function LessonViewerScreen() {
             color={myReaction === 'dislike' ? '#ef4444' : colors.mutedForeground}
           />
           <Text style={[S.actionLabel, { color: myReaction === 'dislike' ? '#ef4444' : colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>
-            {dislikes > 0 ? dislikes : 'لم يعجبني'}
+            {dislikes > 0 ? `👎 ${dislikes}` : '👎'}
           </Text>
         </TouchableOpacity>
 
@@ -486,6 +511,60 @@ export default function LessonViewerScreen() {
         tintColor="#ffffff"
       />
 
+      {/* ── مودال التقييم السلبي ── */}
+      <Modal
+        visible={feedbackVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFeedbackVisible(false)}
+      >
+        <View style={S.modalOverlay}>
+          <View style={[S.modalSheet, { backgroundColor: colors.card }]}>
+            <Text style={[S.modalTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>
+              ما الذي لم يعجبك؟
+            </Text>
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, textAlign: 'right', marginBottom: 12 }]}>
+              رأيك يساعدنا على تحسين المحتوى (اختياري)
+            </Text>
+            <TextInput
+              style={[S.feedbackInput, {
+                color: colors.foreground,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                fontFamily: 'Tajawal_400Regular',
+                fontSize: 14 * fs,
+                textAlign: 'right',
+              }]}
+              placeholder="اكتب ملاحظتك هنا..."
+              placeholderTextColor={colors.mutedForeground}
+              value={feedbackText}
+              onChangeText={setFeedbackText}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={S.modalBtns}>
+              <TouchableOpacity
+                onPress={() => { setFeedbackVisible(false); setFeedbackText(''); }}
+                style={[S.modalBtn, { backgroundColor: colors.muted }]}
+                disabled={feedbackSending}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmitFeedback}
+                style={[S.modalBtn, { backgroundColor: '#ef4444', flex: 1.5 }]}
+                disabled={feedbackSending}
+              >
+                <Text style={{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }}>
+                  {feedbackSending ? 'جاري الإرسال...' : 'إرسال التقييم'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={lessons}
         keyExtractor={(l) => String(l.id)}
@@ -529,6 +608,28 @@ const S = StyleSheet.create({
   },
   lessonTitle: { textAlign: 'right' },
   courseSubtitle: { textAlign: 'right' },
+
+  // Feedback modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 20, paddingBottom: 36, gap: 8,
+  },
+  modalTitle: { textAlign: 'right', marginBottom: 4 },
+  feedbackInput: {
+    borderWidth: 1, borderRadius: 12, padding: 12,
+    minHeight: 90, marginBottom: 4,
+  },
+  modalBtns: {
+    flexDirection: 'row', gap: 10, marginTop: 8,
+  },
+  modalBtn: {
+    flex: 1, borderRadius: 10, paddingVertical: 13,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   // Action bar
   actionBar: {

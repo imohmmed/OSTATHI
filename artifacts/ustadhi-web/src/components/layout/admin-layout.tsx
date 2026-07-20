@@ -6,7 +6,7 @@ import {
 } from '@workspace/api-client-react';
 import {
   LayoutDashboard, Users, GraduationCap, UserCheck, BookOpen,
-  Video, Star, Radio, Bell, LogOut, Moon, Sun, Menu, Settings,
+  Video, Star, Radio, Bell, LogOut, Moon, Sun, Menu, Settings, MessageCircle,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/reviews', icon: Star, label: 'التقييمات' },
     { href: '/admin/livestreams', icon: Radio, label: 'البث المباشر' },
     { href: '/admin/notifications', icon: Bell, label: 'الإشعارات' },
+    { href: '/admin/feedback', icon: MessageCircle, label: 'Feedback' },
     { href: '/admin/settings', icon: Settings, label: 'الإعدادات' },
   ];
 

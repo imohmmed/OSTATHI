@@ -64,6 +64,7 @@ export const lessonReactionsTable = pgTable("lesson_reactions", {
   lessonId: integer("lesson_id").notNull().references(() => lessonsTable.id, { onDelete: "cascade" }),
   studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
   reaction: text("reaction").notNull(), // 'like' | 'dislike'
+  feedback: text("feedback"),           // وصف اختياري عند عدم الإعجاب
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [unique().on(t.lessonId, t.studentId)]);
 

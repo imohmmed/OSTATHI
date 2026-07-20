@@ -24,6 +24,7 @@ import ReviewsPage from '@/pages/admin/reviews';
 import LivestreamsPage from '@/pages/admin/livestreams';
 import NotificationsPage from '@/pages/admin/notifications';
 import SettingsPage from '@/pages/admin/settings';
+import FeedbackPage from '@/pages/admin/feedback';
 import LandingPage from '@/pages/landing';
 
 // Configure auth token getter once at module level so all API hooks pick it up
@@ -59,6 +60,7 @@ export function App() {
                     <Route path="/admin/livestreams" component={LivestreamsPage} />
                     <Route path="/admin/notifications" component={NotificationsPage} />
                     <Route path="/admin/settings" component={SettingsPage} />
+                    <Route path="/admin/feedback" component={FeedbackPage} />
                     <Route component={NotFound} />
                   </Switch>
                 </AdminLayout>
