@@ -356,11 +356,19 @@ function StudentHome() {
               data={(courses ?? []).slice(0, 10)}
               keyExtractor={(c) => String(c.id)}
               renderItem={({ item }) => (
-                <CourseCard title={item.title} teacherName={item.teacherName} subjectName={item.subjectName}
-                  lessonsCount={item.lessonsCount} isHorizontal onPress={() => router.push(`/course/${item.id}`)} />
+                <CourseCard
+                  title={item.title}
+                  teacherName={(item as any).teacherName}
+                  teacherAvatarUrl={(item as any).teacherAvatarUrl}
+                  subjectName={(item as any).subjectName}
+                  gradeLevel={(item as any).gradeLevel}
+                  thumbnailUrl={(item as any).thumbnailUrl}
+                  lessonsCount={item.lessonsCount}
+                  onPress={() => router.push(`/course/${item.id}`)}
+                />
               )}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hList}
+              contentContainerStyle={[styles.hList, { paddingRight: 16 }]}
             />
           )}
         </View>
