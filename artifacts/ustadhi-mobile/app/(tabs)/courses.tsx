@@ -41,16 +41,24 @@ function useLocalProgress() {
   });
 }
 
+const GRADE_LEVELS = [
+  'سادس ابتدائي',
+  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
+  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
+  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
+  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+];
+
 function useCreateCourseForTeacher() {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   const base = domain ? `https://${domain}` : '';
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ teacherId, title, subjectId, description, thumbnailUrl }: { teacherId: number; title: string; subjectId: number; description?: string; thumbnailUrl?: string }) => {
+    mutationFn: async ({ teacherId, title, subjectId, description, thumbnailUrl, gradeLevel }: { teacherId: number; title: string; subjectId: number; description?: string; thumbnailUrl?: string; gradeLevel?: string }) => {
       const res = await fetch(`${base}/api/teachers/${teacherId}/courses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, subjectId, description, thumbnailUrl }),
+        body: JSON.stringify({ title, subjectId, description, thumbnailUrl, gradeLevel }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -217,6 +225,7 @@ function TeacherCourses() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newSubjectId, setNewSubjectId] = useState<number | null>(null);
+  const [newGradeLevel, setNewGradeLevel] = useState<string | null>(null);
   const [newThumbnailUrl, setNewThumbnailUrl] = useState<string | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
@@ -303,9 +312,10 @@ function TeacherCourses() {
         subjectId: newSubjectId,
         description: newDesc.trim() || undefined,
         thumbnailUrl: newThumbnailUrl || undefined,
+        gradeLevel: newGradeLevel || undefined,
       });
       setShowCreateModal(false);
-      setNewTitle(''); setNewDesc(''); setNewSubjectId(null); setNewThumbnailUrl(null);
+      setNewTitle(''); setNewDesc(''); setNewSubjectId(null); setNewThumbnailUrl(null); setNewGradeLevel(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push(`/course/${course.id}`);
     } catch (e: any) {
@@ -453,6 +463,27 @@ function TeacherCourses() {
                     {sub.icon && <Text style={{ fontSize: 14 }}>{sub.icon}</Text>}
                     <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, color: newSubjectId === sub.id ? colors.primaryForeground : colors.foreground }]}>
                       {sub.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* ── الصف الدراسي ── */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }]}>الصف الدراسي</Text>
+              <View style={styles.subjectsGrid}>
+                {GRADE_LEVELS.map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    onPress={() => { setNewGradeLevel(newGradeLevel === g ? null : g); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    style={[styles.subjectPill, {
+                      backgroundColor: newGradeLevel === g ? colors.primary : colors.card,
+                      borderColor: newGradeLevel === g ? colors.primary : colors.border,
+                    }]}
+                  >
+                    <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, color: newGradeLevel === g ? colors.primaryForeground : colors.foreground }]}>
+                      {g}
                     </Text>
                   </TouchableOpacity>
                 ))}

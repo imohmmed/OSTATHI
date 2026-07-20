@@ -227,14 +227,14 @@ router.get("/teachers/:id/students", async (req, res): Promise<void> => {
 // Teacher creates a course for themselves (no admin required)
 router.post("/teachers/:id/courses", async (req, res): Promise<void> => {
   const teacherId = parseInt(req.params.id, 10);
-  const { title, description, thumbnailUrl, subjectId } = req.body ?? {};
+  const { title, description, thumbnailUrl, subjectId, gradeLevel } = req.body ?? {};
   if (!title || !subjectId) {
     res.status(400).json({ error: "title and subjectId required" });
     return;
   }
   const [course] = await db
     .insert(coursesTable)
-    .values({ title, description: description || null, thumbnailUrl: thumbnailUrl || null, subjectId: Number(subjectId), teacherId, isPublished: false, isTrial: false })
+    .values({ title, description: description || null, thumbnailUrl: thumbnailUrl || null, subjectId: Number(subjectId), teacherId, gradeLevel: gradeLevel || null, isPublished: false, isTrial: false })
     .returning();
   res.status(201).json(course);
 });
