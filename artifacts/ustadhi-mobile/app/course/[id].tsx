@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -26,8 +29,17 @@ import {
   useGetCourse,
   useDeleteLesson,
   useUpdateLesson,
+  useGetSubjects,
   getGetCourseQueryKey,
 } from '@workspace/api-client-react';
+
+const GRADE_LEVELS = [
+  'سادس ابتدائي',
+  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
+  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
+  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
+  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+];
 
 type Lesson = {
   id: number;
@@ -54,8 +66,15 @@ export default function CourseDetailScreen() {
 
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [orderedLessons, setOrderedLessons] = useState<Lesson[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // Editable settings state (synced from course on open)
+  const [editSubjectId, setEditSubjectId] = useState<number | null>(null);
+  const [editGradeLevel, setEditGradeLevel] = useState<string | null>(null);
+  const [editPublished, setEditPublished] = useState(false);
 
   const { data: course, isLoading } = useGetCourse(courseId);
+  const { data: subjects } = useGetSubjects();
   const deleteLesson = useDeleteLesson();
   const updateLesson = useUpdateLesson();
 
@@ -112,6 +131,42 @@ export default function CourseDetailScreen() {
     queryClient.invalidateQueries({ queryKey: getGetCourseQueryKey(courseId) });
   };
 
+  const openSettings = () => {
+    setEditSubjectId((course as any)?.subjectId ?? null);
+    setEditGradeLevel((course as any)?.gradeLevel ?? null);
+    setEditPublished((course as any)?.isPublished ?? false);
+    setSettingsOpen(true);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!editSubjectId) { Alert.alert('تنبيه', 'يرجى اختيار المادة'); return; }
+    if (!editGradeLevel) { Alert.alert('تنبيه', 'يرجى اختيار الصف'); return; }
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const base = domain ? `https://${domain}` : '';
+    setSaving(true);
+    try {
+      const res = await fetch(`${base}/api/teacher/courses/${courseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: user!.id,
+          subjectId: editSubjectId,
+          gradeLevel: editGradeLevel,
+          isPublished: editPublished,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'فشل الحفظ');
+      queryClient.invalidateQueries({ queryKey: getGetCourseQueryKey(courseId) });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      setSettingsOpen(false);
+      Alert.alert('✓', 'تم حفظ إعدادات الدورة');
+    } catch (e: any) {
+      Alert.alert('خطأ', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleLessonPress = useCallback(
     (lesson: Lesson) => {
       if (isOwner) {
@@ -137,13 +192,32 @@ export default function CourseDetailScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.heroMeta}>
-              {course?.subject && (
-                <View style={styles.badge}>
-                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }}>
-                    {course.subject}
-                  </Text>
-                </View>
+            <View style={[styles.heroMeta, { justifyContent: 'space-between', alignItems: 'flex-start' }]}>
+              <View style={{ flexDirection: 'row-reverse', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                {(course as any)?.subjectName && (
+                  <View style={styles.badge}>
+                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }}>
+                      {(course as any).subjectName}
+                    </Text>
+                  </View>
+                )}
+                {(course as any)?.gradeLevel && (
+                  <View style={[styles.badge, { backgroundColor: 'rgba(212,168,67,0.35)' }]}>
+                    <Text style={{ color: '#D4A843', fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }}>
+                      {(course as any).gradeLevel}
+                    </Text>
+                  </View>
+                )}
+                {(course as any)?.isPublished === false && (
+                  <View style={[styles.badge, { backgroundColor: 'rgba(239,68,68,0.25)' }]}>
+                    <Text style={{ color: '#fca5a5', fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }}>مسودة</Text>
+                  </View>
+                )}
+              </View>
+              {isOwner && (
+                <TouchableOpacity onPress={openSettings} style={styles.settingsBtn}>
+                  <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+                </TouchableOpacity>
               )}
             </View>
             <Text style={[styles.heroTitle, { color: '#fff', fontFamily: 'Tajawal_800ExtraBold', fontSize: 22 * fs }]}>
@@ -342,6 +416,94 @@ export default function CourseDetailScreen() {
           onSuccess={handleAddSuccess}
         />
       )}
+
+      {/* ── Teacher settings modal ── */}
+      <Modal visible={settingsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSettingsOpen(false)}>
+        <View style={[styles.modalWrap, { backgroundColor: colors.background }]}>
+          {/* Header */}
+          <View style={[styles.modalHdr, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setSettingsOpen(false)}>
+              <Ionicons name="close" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text style={[styles.modalHdrTitle, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 18 * fs }]}>
+              إعدادات الدورة
+            </Text>
+            <View style={{ width: 28 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 24 }} showsVerticalScrollIndicator={false}>
+            {/* ── Publish toggle ── */}
+            <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>نشر الدورة</Text>
+                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, marginTop: 2 }]}>
+                  {editPublished ? 'الدورة منشورة وتظهر للطلاب' : 'الدورة مسودة — غير مرئية للطلاب'}
+                </Text>
+              </View>
+              <Switch
+                value={editPublished}
+                onValueChange={setEditPublished}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {/* ── Subject ── */}
+            <View style={{ gap: 10 }}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>المادة الدراسية *</Text>
+              <View style={styles.pillsGrid}>
+                {(subjects ?? []).map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    onPress={() => setEditSubjectId(s.id)}
+                    style={[styles.selPill, {
+                      backgroundColor: editSubjectId === s.id ? colors.primary : colors.card,
+                      borderColor: editSubjectId === s.id ? colors.primary : colors.border,
+                    }]}
+                  >
+                    {s.icon ? <Text style={{ fontSize: 13 }}>{s.icon}</Text> : null}
+                    <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, color: editSubjectId === s.id ? colors.primaryForeground : colors.foreground }]}>
+                      {s.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* ── Grade level ── */}
+            <View style={{ gap: 10 }}>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}>الصف الدراسي *</Text>
+              <View style={styles.pillsGrid}>
+                {GRADE_LEVELS.map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    onPress={() => setEditGradeLevel(g)}
+                    style={[styles.selPill, {
+                      backgroundColor: editGradeLevel === g ? colors.primary : colors.card,
+                      borderColor: editGradeLevel === g ? colors.primary : colors.border,
+                    }]}
+                  >
+                    <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs, color: editGradeLevel === g ? colors.primaryForeground : colors.foreground }]}>
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Save button */}
+            <TouchableOpacity
+              onPress={handleSaveSettings}
+              disabled={saving}
+              style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]}
+            >
+              <Text style={[{ color: colors.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 16 * fs }]}>
+                {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -440,5 +602,48 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+  settingsBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+  },
+  modalWrap: { flex: 1 },
+  modalHdr: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  modalHdrTitle: {},
+  settingsCard: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  pillsGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  selPill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  saveBtn: {
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 8,
   },
 });

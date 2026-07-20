@@ -37,7 +37,7 @@ router.get("/courses", async (req, res): Promise<void> => {
       thumbnailUrl: coursesTable.thumbnailUrl,
       subjectId: coursesTable.subjectId,
       subjectName: subjectsTable.name,
-      gradeLevel: subjectsTable.gradeLevel,
+      gradeLevel: coursesTable.gradeLevel,
       teacherId: coursesTable.teacherId,
       teacherName: teachersTable.fullName,
       teacherAvatarUrl: teachersTable.avatarUrl,
@@ -101,6 +101,7 @@ router.get("/courses/:id", async (req, res): Promise<void> => {
       thumbnailUrl: coursesTable.thumbnailUrl,
       subjectId: coursesTable.subjectId,
       subjectName: subjectsTable.name,
+      gradeLevel: coursesTable.gradeLevel,
       teacherId: coursesTable.teacherId,
       teacherName: teachersTable.fullName,
       isPublished: coursesTable.isPublished,
@@ -124,7 +125,7 @@ router.get("/courses/:id", async (req, res): Promise<void> => {
 router.patch("/courses/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { title, description, thumbnailUrl, subjectId, teacherId, isPublished, isTrial } = req.body;
+  const { title, description, thumbnailUrl, subjectId, teacherId, isPublished, isTrial, gradeLevel } = req.body;
   const updates: Record<string, any> = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description || null;
@@ -133,6 +134,7 @@ router.patch("/courses/:id", requireAdmin, async (req, res): Promise<void> => {
   if (teacherId !== undefined) updates.teacherId = teacherId;
   if (isPublished !== undefined) updates.isPublished = isPublished;
   if (isTrial !== undefined) updates.isTrial = isTrial;
+  if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel || null;
 
   const [course] = await db.update(coursesTable).set(updates).where(eq(coursesTable.id, id)).returning();
   if (!course) {
@@ -145,6 +147,33 @@ router.patch("/courses/:id", requireAdmin, async (req, res): Promise<void> => {
   const [{ count: studentsCount }] = await db.select({ count: sql<number>`count(*)::int` }).from(studentCoursesTable).where(eq(studentCoursesTable.courseId, id));
 
   res.json({ ...course, subjectName: subject?.name ?? null, teacherName: teacher?.fullName ?? null, lessonsCount, studentsCount });
+});
+
+// Teacher: update their own course (subject, gradeLevel, publish)
+router.patch("/teacher/courses/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const { teacherId, subjectId, gradeLevel, isPublished, title, description, thumbnailUrl } = req.body;
+  if (!teacherId) { res.status(400).json({ error: "teacherId مطلوب" }); return; }
+
+  const [existing] = await db.select({ teacherId: coursesTable.teacherId }).from(coursesTable).where(eq(coursesTable.id, id));
+  if (!existing) { res.status(404).json({ error: "الكورس غير موجود" }); return; }
+  if (existing.teacherId !== Number(teacherId)) { res.status(403).json({ error: "غير مصرّح" }); return; }
+
+  const updates: Record<string, any> = {};
+  if (title !== undefined) updates.title = title;
+  if (description !== undefined) updates.description = description || null;
+  if (thumbnailUrl !== undefined) updates.thumbnailUrl = thumbnailUrl || null;
+  if (subjectId !== undefined) updates.subjectId = Number(subjectId);
+  if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel || null;
+  if (isPublished !== undefined) updates.isPublished = Boolean(isPublished);
+
+  const [course] = await db.update(coursesTable).set(updates).where(eq(coursesTable.id, id)).returning();
+  const [subject] = await db.select({ name: subjectsTable.name }).from(subjectsTable).where(eq(subjectsTable.id, course.subjectId));
+  const [{ count: lessonsCount }] = await db.select({ count: sql<number>`count(*)::int` }).from(lessonsTable).where(eq(lessonsTable.courseId, id));
+  const [{ count: studentsCount }] = await db.select({ count: sql<number>`count(*)::int` }).from(studentCoursesTable).where(eq(studentCoursesTable.courseId, id));
+
+  res.json({ ...course, subjectName: subject?.name ?? null, lessonsCount, studentsCount });
 });
 
 router.delete("/courses/:id", requireAdmin, async (req, res): Promise<void> => {
