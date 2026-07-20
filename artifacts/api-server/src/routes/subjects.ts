@@ -100,6 +100,7 @@ router.post("/subjects", requireAdmin, async (req, res): Promise<void> => {
     name, gradeLevel,
     icon: icon || null,
     description: description || null,
+    imageUrl: null,
   }).returning();
   res.status(201).json(subject);
 });
@@ -107,12 +108,13 @@ router.post("/subjects", requireAdmin, async (req, res): Promise<void> => {
 router.patch("/subjects/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { name, icon, gradeLevel, description } = req.body;
+  const { name, icon, gradeLevel, description, imageUrl } = req.body;
   const updates: Record<string, any> = {};
   if (name !== undefined) updates.name = name;
   if (icon !== undefined) updates.icon = icon || null;
   if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
   if (description !== undefined) updates.description = description || null;
+  if (imageUrl !== undefined) updates.imageUrl = imageUrl || null;
 
   const [subject] = await db.update(subjectsTable).set(updates).where(eq(subjectsTable.id, id)).returning();
   if (!subject) {

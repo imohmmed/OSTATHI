@@ -25,6 +25,7 @@ const subjectSchema = z.object({
   gradeLevel: z.string().min(1, 'المرحلة الدراسية مطلوبة'),
   description: z.string().optional(),
   icon: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 const gradeLevels = [
@@ -51,7 +52,7 @@ export default function SubjectsPage() {
 
   const form = useForm<z.infer<typeof subjectSchema>>({
     resolver: zodResolver(subjectSchema),
-    defaultValues: { name: '', gradeLevel: '', description: '', icon: '' },
+    defaultValues: { name: '', gradeLevel: '', description: '', icon: '', imageUrl: '' },
   });
 
   const onSubmit = (values: z.infer<typeof subjectSchema>) => {
@@ -78,7 +79,8 @@ export default function SubjectsPage() {
     setEditId(subject.id);
     form.reset({
       name: subject.name, gradeLevel: subject.gradeLevel, 
-      description: subject.description || '', icon: subject.icon || ''
+      description: subject.description || '', icon: subject.icon || '',
+      imageUrl: (subject as any).imageUrl || ''
     });
     setIsAddOpen(true);
   };
@@ -140,6 +142,18 @@ export default function SubjectsPage() {
                   <FormField control={form.control} name="description" render={({field}) => (
                     <FormItem><FormLabel>وصف المادة</FormLabel><FormControl><Textarea {...field}/></FormControl><FormMessage/></FormItem>
                   )} />
+                  <FormField control={form.control} name="imageUrl" render={({field}) => (
+                    <FormItem>
+                      <FormLabel>رابط صورة المادة (مربع)</FormLabel>
+                      <FormControl><Input {...field} placeholder="https://..." dir="ltr"/></FormControl>
+                      {field.value && (
+                        <div className="mt-2 rounded-2xl overflow-hidden w-24 h-24 border border-border">
+                          <img src={field.value} alt="preview" className="w-full h-full object-cover"/>
+                        </div>
+                      )}
+                      <FormMessage/>
+                    </FormItem>
+                  )} />
                   <DialogFooter className="mt-6">
                     <Button type="submit" disabled={createSubject.isPending || updateSubject.isPending}>حفظ</Button>
                   </DialogFooter>
@@ -162,9 +176,15 @@ export default function SubjectsPage() {
                 <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => handleEdit(subject)}><Edit className="w-4 h-4 text-blue-500" /></Button>
                 <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => handleDelete(subject.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
               </div>
-              <div className="w-12 h-12 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mb-4">
-                <BookOpen className="w-6 h-6" />
-              </div>
+              {(subject as any).imageUrl ? (
+                <div className="w-full aspect-square rounded-2xl overflow-hidden mb-4">
+                  <img src={(subject as any).imageUrl} alt={subject.name} className="w-full h-full object-cover"/>
+                </div>
+              ) : (
+                <div className="w-12 h-12 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mb-4">
+                  {subject.icon ? <span className="text-2xl">{subject.icon}</span> : <BookOpen className="w-6 h-6" />}
+                </div>
+              )}
               <h3 className="text-xl font-bold">{subject.name}</h3>
               <p className="text-muted-foreground text-sm mt-1">{subject.gradeLevel}</p>
               {subject.description && <p className="text-sm mt-4 text-foreground/80 line-clamp-2">{subject.description}</p>}

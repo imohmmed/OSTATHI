@@ -311,8 +311,8 @@ function StudentHome() {
               keyExtractor={(s) => String(s.id)}
               renderItem={({ item }) => (
                 <SubjectCard
-                  name={item.name} icon={item.icon} gradeLevel={item.gradeLevel}
-                  isSelected={false}
+                  name={item.name} icon={item.icon} imageUrl={(item as any).imageUrl}
+                  gradeLevel={item.gradeLevel} isSelected={false}
                   onPress={() => router.push(`/subject/${item.id}` as any)}
                 />
               )}

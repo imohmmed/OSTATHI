@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-  FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import { FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useGetSubjects } from '@workspace/api-client-react';
@@ -30,36 +23,56 @@ export default function SubjectsScreen() {
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const accent = SUBJECT_COLORS[index % SUBJECT_COLORS.length];
+    const hasImage = !!item.imageUrl;
+
     return (
       <TouchableOpacity
         onPress={() => router.push(`/subject/${item.id}`)}
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-        activeOpacity={0.75}
+        activeOpacity={0.82}
       >
-        <View style={[styles.iconWrap, { backgroundColor: accent + '20' }]}>
-          {item.icon ? (
-            <Text style={styles.iconEmoji}>{item.icon}</Text>
-          ) : (
-            <Ionicons name="book-outline" size={28} color={accent} />
-          )}
-        </View>
-        <Text style={[styles.name, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]} numberOfLines={2}>
-          {item.name}
-        </Text>
-        {item.gradeLevel ? (
-          <Text style={[styles.grade, { color: accent, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]} numberOfLines={1}>
-            {item.gradeLevel}
+        {/* Image / icon area — fills top of card */}
+        {hasImage ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.cardImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.iconWrap, { backgroundColor: accent + '20' }]}>
+            {item.icon ? (
+              <Text style={styles.iconEmoji}>{item.icon}</Text>
+            ) : (
+              <Ionicons name="book-outline" size={32} color={accent} />
+            )}
+          </View>
+        )}
+
+        {/* Name + grade below */}
+        <View style={styles.cardInfo}>
+          <Text
+            style={[styles.name, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}
+            numberOfLines={2}
+          >
+            {item.name}
           </Text>
-        ) : null}
+          {item.gradeLevel ? (
+            <Text
+              style={[styles.grade, { color: accent, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}
+              numberOfLines={1}
+            >
+              {item.gradeLevel}
+            </Text>
+          ) : null}
+        </View>
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen options={{ title: 'المواد الدراسية', headerBackTitle: 'رجوع' }} />
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>جاري التحميل...</Text>
+          <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs }]}>
+            جاري التحميل...
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -87,26 +100,31 @@ export default function SubjectsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 16, gap: 12 },
+  list: { padding: 12, gap: 12 },
   row: { gap: 12, flexDirection: 'row-reverse' },
   card: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 130,
-    justifyContent: 'center',
+    overflow: 'hidden',
+    minHeight: 180,
+  },
+  cardImage: {
+    width: '100%',
+    aspectRatio: 1,      // square photo fills top
   },
   iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: '100%',
+    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconEmoji: { fontSize: 28 },
+  iconEmoji: { fontSize: 40 },
+  cardInfo: {
+    padding: 10,
+    gap: 3,
+    alignItems: 'center',
+  },
   name: { textAlign: 'center' },
   grade: { textAlign: 'center' },
   emptyWrap: { alignItems: 'center', gap: 12, marginTop: 80 },
