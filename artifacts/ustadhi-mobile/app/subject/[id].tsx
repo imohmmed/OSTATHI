@@ -40,19 +40,17 @@ interface SubjectDetail {
   teachers: Teacher[];
 }
 
-function useSubjectDetail(id: number, adminToken: string | undefined) {
+function useSubjectDetail(id: number, _adminToken?: string) {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   const base = domain ? `https://${domain}` : '';
   return useQuery<SubjectDetail>({
-    queryKey: ['admin-subject', id],
+    queryKey: ['subject-detail', id],
     queryFn: async () => {
-      const res = await fetch(`${base}/api/mobile/admin/subjects/${id}`, {
-        headers: { 'x-admin-token': adminToken ?? '' },
-      });
+      const res = await fetch(`${base}/api/subjects/${id}`);
       if (!res.ok) throw new Error('فشل جلب المادة');
       return res.json();
     },
-    enabled: !!adminToken && !!id,
+    enabled: !!id,
   });
 }
 
