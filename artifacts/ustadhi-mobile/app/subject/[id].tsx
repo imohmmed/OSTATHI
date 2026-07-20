@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -222,12 +223,20 @@ export default function SubjectDetailScreen() {
         data={subject?.teachers ?? []}
         keyExtractor={(t) => String(t.id)}
         renderItem={({ item }) => (
-          <View style={[styles.teacherRow, { backgroundColor: c.card, borderColor: c.border }]}>
-            <View style={[styles.avatar, { backgroundColor: c.primary }]}>
-              <Text style={[{ color: c.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 18 }]}>
-                {item.fullName[0]}
-              </Text>
-            </View>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/admin/teacher-detail/[id]' as any, params: { id: item.id } })}
+            activeOpacity={0.75}
+            style={[styles.teacherRow, { backgroundColor: c.card, borderColor: c.border }]}
+          >
+            {item.avatarUrl ? (
+              <Image source={{ uri: item.avatarUrl }} style={styles.avatarImg} resizeMode="cover" />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: c.primary }]}>
+                <Text style={[{ color: c.primaryForeground, fontFamily: 'Tajawal_700Bold', fontSize: 18 }]}>
+                  {item.fullName[0]}
+                </Text>
+              </View>
+            )}
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs, textAlign: 'right' }]}>
                 {item.fullName}
@@ -246,7 +255,8 @@ export default function SubjectDetailScreen() {
                 <Text style={[{ color: c.destructive, fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }]}>موقوف</Text>
               </View>
             )}
-          </View>
+            <Ionicons name="chevron-back" size={16} color={c.mutedForeground} />
+          </TouchableOpacity>
         )}
         ListHeaderComponent={
           <Text style={[{ color: c.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, textAlign: 'right', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }]}>
@@ -462,6 +472,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avatarImg: { width: 50, height: 50, borderRadius: 25, flexShrink: 0 },
   inactiveBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   empty: { alignItems: 'center', gap: 12, marginTop: 60, paddingHorizontal: 32 },
   addFirstBtn: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 999, marginTop: 4 },

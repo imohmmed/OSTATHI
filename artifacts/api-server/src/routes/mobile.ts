@@ -355,6 +355,62 @@ router.post("/mobile/admin/subjects/:id/link-teacher", requireMobileAdmin, async
   }
 });
 
+// ── Mobile Admin: تفاصيل أستاذ كامل ──────────────────
+router.get("/mobile/admin/teachers/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [teacher] = await db.select().from(teachersTable).where(eq(teachersTable.id, id));
+  if (!teacher) { res.status(404).json({ error: "الأستاذ غير موجود" }); return; }
+  const [gradeLevels, subjects] = await Promise.all([
+    db.select({ gradeLevel: teacherGradeLevelsTable.gradeLevel })
+      .from(teacherGradeLevelsTable).where(eq(teacherGradeLevelsTable.teacherId, id)),
+    db.select({ id: subjectsTable.id, name: subjectsTable.name, icon: subjectsTable.icon })
+      .from(teacherSubjectsTable)
+      .innerJoin(subjectsTable, eq(teacherSubjectsTable.subjectId, subjectsTable.id))
+      .where(eq(teacherSubjectsTable.teacherId, id)),
+  ]);
+  res.json({ ...teacher, password: undefined, gradeLevels: gradeLevels.map(r => r.gradeLevel), subjects });
+});
+
+// ── Mobile Admin: تعديل أستاذ كامل ──────────────────
+router.put("/mobile/admin/teachers/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { fullName, phone, username, password, bio, avatarUrl, isActive, gradeLevels, subjectIds } = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+  if (fullName !== undefined) updates.fullName = fullName;
+  if (phone !== undefined) updates.phone = phone;
+  if (username !== undefined) updates.username = username;
+  if (password !== undefined && password !== "") updates.password = password;
+  if (bio !== undefined) updates.bio = bio;
+  if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+  if (isActive !== undefined) updates.isActive = isActive;
+
+  try {
+    const [teacher] = await db.update(teachersTable).set(updates).where(eq(teachersTable.id, id)).returning();
+    if (!teacher) { res.status(404).json({ error: "الأستاذ غير موجود" }); return; }
+
+    // Update grade levels
+    if (Array.isArray(gradeLevels)) {
+      await db.delete(teacherGradeLevelsTable).where(eq(teacherGradeLevelsTable.teacherId, id));
+      if (gradeLevels.length > 0) {
+        await db.insert(teacherGradeLevelsTable)
+          .values(gradeLevels.map((gl: string) => ({ teacherId: id, gradeLevel: gl })));
+      }
+    }
+    // Update subjects
+    if (Array.isArray(subjectIds)) {
+      await db.delete(teacherSubjectsTable).where(eq(teacherSubjectsTable.teacherId, id));
+      if (subjectIds.length > 0) {
+        await db.insert(teacherSubjectsTable)
+          .values(subjectIds.map((sId: number) => ({ teacherId: id, subjectId: sId })))
+          .onConflictDoNothing();
+      }
+    }
+    res.json({ ...teacher, password: undefined });
+  } catch {
+    res.status(409).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+  }
+});
+
 // ── Mobile Admin: تفاصيل مادة مع أساتذتها ───────────
 router.get("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
