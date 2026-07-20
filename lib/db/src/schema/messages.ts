@@ -4,6 +4,24 @@ import { z } from "zod/v4";
 import { studentsTable } from "./students";
 import { teachersTable } from "./teachers";
 
+// ── جدول المحادثات الجديد (رسائل حقيقية ذهاباً وإياباً) ──────────────────
+export const chatMessagesTable = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
+  teacherId: integer("teacher_id").notNull().references(() => teachersTable.id, { onDelete: "cascade" }),
+  senderType: text("sender_type").notNull(), // 'student' | 'teacher' | 'assistant'
+  senderName: text("sender_name"),
+  text: text("text"),
+  attachmentUrl: text("attachment_url"),
+  attachmentType: text("attachment_type"),   // 'image' | 'file'
+  attachmentName: text("attachment_name"),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ChatMessage = typeof chatMessagesTable.$inferSelect;
+
+// ── الجدول القديم (محفوظ للتوافق مع البيانات السابقة) ─────────────────────
 export const messagesTable = pgTable("messages", {
   id: serial("id").primaryKey(),
   fromStudentId: integer("from_student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),

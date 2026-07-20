@@ -16,8 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TeacherCard } from '@/components/TeacherCard';
 import { SkeletonRow } from '@/components/SkeletonLoader';
 import { useGetTeachers } from '@workspace/api-client-react';
-import { useTeacherInbox } from '@/hooks/useMessages';
 import { useQuery } from '@tanstack/react-query';
+import { useTeacherConversations } from '@/hooks/useChat';
 import * as Haptics from 'expo-haptics';
 import colors from '@/constants/colors';
 
@@ -102,41 +102,10 @@ function TeacherInboxList() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   // المساعد يرى صندوق أستاذه، الأستاذ يرى صندوقه هو
-  const inboxTeacherId = user?.role === 'assistant' ? user.teacherId : user?.id;
-  const { data: allMessages, isLoading } = useTeacherInbox(inboxTeacherId);
+  const inboxTeacherId = user?.role === 'assistant' ? (user as any).teacherId : user?.id;
+  const { data: conversations = [], isLoading } = useTeacherConversations(inboxTeacherId);
 
-  const conversations = React.useMemo(() => {
-    if (!allMessages) return [];
-    const map = new Map<number, {
-      studentId: number;
-      studentName: string;
-      lastMessage: string;
-      lastTime: string;
-      unread: number;
-    }>();
-    for (const msg of allMessages) {
-      const existing = map.get(msg.fromStudentId);
-      const unread = !msg.isReadByTeacher ? 1 : 0;
-      if (!existing) {
-        map.set(msg.fromStudentId, {
-          studentId: msg.fromStudentId,
-          studentName: msg.studentName ?? `طالب #${msg.fromStudentId}`,
-          lastMessage: msg.text,
-          lastTime: msg.createdAt,
-          unread,
-        });
-      } else {
-        existing.unread += unread;
-        if (msg.createdAt > existing.lastTime) {
-          existing.lastMessage = msg.text;
-          existing.lastTime = msg.createdAt;
-        }
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => b.lastTime.localeCompare(a.lastTime));
-  }, [allMessages]);
-
-  const totalUnread = conversations.reduce((a, c) => a + c.unread, 0);
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   const isAssistant = user?.role === 'assistant';
 
@@ -207,10 +176,10 @@ function TeacherInboxList() {
               </Text>
             </View>
             {/* Unread badge */}
-            {item.unread > 0 && (
+            {item.unreadCount > 0 && (
               <View style={[styles.msgBadge, { backgroundColor: colors.gold }]}>
                 <Text style={[{ color: colors.navy, fontFamily: 'Tajawal_700Bold', fontSize: 11 * fs }]}>
-                  {item.unread}
+                  {item.unreadCount}
                 </Text>
               </View>
             )}

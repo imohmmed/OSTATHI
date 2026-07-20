@@ -7,5 +7,6 @@ export * from "./reviews";
 export * from "./livestreams";
 export * from "./notifications";
 export * from "./messages";
+export { chatMessagesTable } from "./messages";
 export * from "./banners";
 export { lessonReactionsTable, lessonVideoProgressTable } from "./courses";
