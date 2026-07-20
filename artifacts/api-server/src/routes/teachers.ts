@@ -169,30 +169,55 @@ router.delete("/teachers/:id", requireAdmin, async (req, res): Promise<void> => 
   res.json({ ok: true });
 });
 
-// GET /teachers/:id/students — public (list of students enrolled in teacher's courses)
+// GET /teachers/:id/students — returns students enrolled in teacher's courses
+// Includes: (1) explicitly enrolled via studentCoursesTable AND
+//           (2) students whose gradeLevel matches any published course of this teacher
 router.get("/teachers/:id/students", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
 
   const teacherCourses = await db
-    .select({ id: coursesTable.id })
+    .select({ id: coursesTable.id, gradeLevel: coursesTable.gradeLevel, isPublished: coursesTable.isPublished })
     .from(coursesTable)
     .where(eq(coursesTable.teacherId, id));
 
   if (!teacherCourses.length) { res.json([]); return; }
 
   const courseIds = teacherCourses.map(c => c.id);
+
+  // 1. Explicitly enrolled students
   const enrollments = await db
     .select({ studentId: studentCoursesTable.studentId, courseId: studentCoursesTable.courseId })
     .from(studentCoursesTable)
     .where(inArray(studentCoursesTable.courseId, courseIds));
 
-  const studentIds = [...new Set(enrollments.map(e => e.studentId))];
-  if (!studentIds.length) { res.json([]); return; }
+  // 2. Grade-level matched students (from published courses)
+  const publishedGrades = [...new Set(
+    teacherCourses.filter(c => c.isPublished && c.gradeLevel).map(c => c.gradeLevel as string)
+  )];
 
-  const students = await db.select().from(studentsTable).where(inArray(studentsTable.id, studentIds));
+  let gradeStudents: any[] = [];
+  if (publishedGrades.length) {
+    gradeStudents = await db.select().from(studentsTable)
+      .where(inArray(studentsTable.gradeLevel, publishedGrades));
+  }
 
-  res.json(students.map(s => ({
+  // Merge & deduplicate
+  const explicitStudentIds = [...new Set(enrollments.map(e => e.studentId))];
+  let explicitStudents: any[] = [];
+  if (explicitStudentIds.length) {
+    explicitStudents = await db.select().from(studentsTable)
+      .where(inArray(studentsTable.id, explicitStudentIds));
+  }
+
+  const seen = new Set<number>();
+  const allStudents = [...explicitStudents, ...gradeStudents].filter(s => {
+    if (seen.has(s.id)) return false;
+    seen.add(s.id);
+    return true;
+  });
+
+  res.json(allStudents.map(s => ({
     ...s,
     password: undefined,
     enrolledCourseIds: enrollments.filter(e => e.studentId === s.id).map(e => e.courseId),

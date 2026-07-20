@@ -5,6 +5,7 @@ import {
   Image,
   Modal,
   Platform,
+  // Image already imported above
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -62,6 +63,143 @@ function useCreateCourseForTeacher() {
     },
   });
 }
+
+// ─────────────────────────────────────────────
+// TEACHER COURSE CARD
+// ─────────────────────────────────────────────
+function TeacherCourseCard({ course, fs, colors, onPress, onDelete }: {
+  course: any; fs: number; colors: any;
+  onPress: () => void; onDelete: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.88}
+      style={[tcStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+    >
+      {/* ── Thumbnail ── */}
+      <View style={tcStyles.thumbWrap}>
+        {course.thumbnailUrl ? (
+          <Image source={{ uri: course.thumbnailUrl }} style={tcStyles.thumb} resizeMode="cover" />
+        ) : (
+          <View style={[tcStyles.thumb, tcStyles.thumbPlaceholder, { backgroundColor: '#101D36' }]}>
+            <Ionicons name="book" size={32} color="rgba(212,168,67,0.8)" />
+          </View>
+        )}
+        {/* Subject pill */}
+        {course.subjectName && (
+          <View style={tcStyles.subjectPill}>
+            <Text style={[tcStyles.subjectText, { fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }]}>{course.subjectName}</Text>
+          </View>
+        )}
+        {/* Status badge top-left */}
+        <View style={[tcStyles.statusBadge, {
+          backgroundColor: course.isPublished ? 'rgba(34,197,94,0.85)' : 'rgba(100,116,139,0.85)',
+        }]}>
+          <View style={[tcStyles.statusDot, { backgroundColor: course.isPublished ? '#fff' : 'rgba(255,255,255,0.6)' }]} />
+          <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 10 * fs }]}>
+            {course.isPublished ? 'منشور' : 'مسودة'}
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Body ── */}
+      <View style={tcStyles.body}>
+        <Text style={[tcStyles.title, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]} numberOfLines={2}>
+          {course.title}
+        </Text>
+
+        {/* Grade level */}
+        {course.gradeLevel && (
+          <View style={[tcStyles.gradePill, { backgroundColor: '#D4A843' + '18', borderColor: '#D4A843' + '40' }]}>
+            <Ionicons name="school-outline" size={12} color="#D4A843" />
+            <Text style={[{ color: '#D4A843', fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs }]}>{course.gradeLevel}</Text>
+          </View>
+        )}
+
+        {/* Stats row */}
+        <View style={tcStyles.statsRow}>
+          <View style={tcStyles.statItem}>
+            <Ionicons name="people-outline" size={14} color={colors.mutedForeground} />
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
+              {course.studentsCount ?? 0} طالب
+            </Text>
+          </View>
+          <View style={[tcStyles.dot, { backgroundColor: colors.border }]} />
+          <View style={tcStyles.statItem}>
+            <Ionicons name="play-circle-outline" size={14} color={colors.mutedForeground} />
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>
+              {course.lessonsCount ?? 0} محاضرة
+            </Text>
+          </View>
+        </View>
+
+        {/* Action row */}
+        <View style={[tcStyles.actionRow, { borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={onDelete}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={[tcStyles.deleteBtn, { borderColor: '#ef444430', backgroundColor: '#ef444408' }]}
+          >
+            <Ionicons name="trash-outline" size={14} color="#ef4444" />
+            <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>حذف</Text>
+          </TouchableOpacity>
+          <View style={tcStyles.statItem}>
+            <Ionicons name="chevron-back" size={16} color={colors.mutedForeground} />
+            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs }]}>إدارة الكورس</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const tcStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  thumbWrap: { position: 'relative' },
+  thumb: { width: '100%', aspectRatio: 16 / 9 },
+  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  subjectPill: {
+    position: 'absolute', top: 10, right: 10,
+    backgroundColor: 'rgba(16,29,54,0.78)',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+  },
+  subjectText: { color: '#fff' },
+  statusBadge: {
+    position: 'absolute', top: 10, left: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999,
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  body: { padding: 14, gap: 8 },
+  title: { textAlign: 'right', lineHeight: 24 },
+  gradePill: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 5,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
+  },
+  statsRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    justifyContent: 'flex-end',
+  },
+  statItem: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4 },
+  dot: { width: 3, height: 3, borderRadius: 2 },
+  actionRow: {
+    flexDirection: 'row-reverse', alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10, borderTopWidth: 1, marginTop: 2,
+  },
+  deleteBtn: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+  },
+});
 
 // ─────────────────────────────────────────────
 // TEACHER COURSES VIEW
@@ -213,10 +351,10 @@ function TeacherCourses() {
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom, paddingTop: 12 }}
       >
         {isLoading ? (
-          [1, 2, 3].map((i) => <View key={i} style={{ marginHorizontal: 16, marginBottom: 12 }}><SkeletonCard /></View>)
+          [1, 2, 3].map((i) => <View key={i} style={{ marginHorizontal: 16, marginBottom: 16 }}><SkeletonCard /></View>)
         ) : filtered.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="book-outline" size={48} color={colors.mutedForeground} />
+            <Ionicons name="book-outline" size={52} color={colors.mutedForeground} />
             <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs, textAlign: 'center' }]}>
               {filter === 'all' ? 'لم تنشئ أي كورسات بعد' : filter === 'published' ? 'لا توجد كورسات منشورة' : 'لا توجد مسودات'}
             </Text>
@@ -229,35 +367,14 @@ function TeacherCourses() {
           </View>
         ) : (
           filtered.map((course) => (
-            <View key={course.id} style={styles.courseWrapper}>
-              <CourseCard
-                title={course.title}
-                teacherName={course.teacherName}
-                subjectName={course.subjectName}
-                lessonsCount={course.lessonsCount}
-                onPress={() => router.push(`/course/${course.id}`)}
-              />
-              <View style={[styles.courseFooter, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <TouchableOpacity
-                  onPress={() => handleDelete(course.id, course.title)}
-                  style={[styles.deleteBtn, { borderColor: '#ef444440', backgroundColor: '#ef444410' }]}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                  <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_700Bold', fontSize: 12 * fs }]}>حذف</Text>
-                </TouchableOpacity>
-                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
-                  <Text style={[{ fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, color: colors.mutedForeground }]}>
-                    {course.studentsCount} طالب
-                  </Text>
-                  <View style={[styles.statusBadge, { backgroundColor: course.isPublished ? colors.success + '20' : colors.muted }]}>
-                    <Text style={[{ fontFamily: 'Tajawal_500Medium', fontSize: 11 * fs, color: course.isPublished ? colors.success : colors.mutedForeground }]}>
-                      {course.isPublished ? 'منشور' : 'مسودة'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
+            <TeacherCourseCard
+              key={course.id}
+              course={course}
+              fs={fs}
+              colors={colors}
+              onPress={() => router.push(`/course/${course.id}`)}
+              onDelete={() => handleDelete(course.id, course.title)}
+            />
           ))
         )}
       </ScrollView>

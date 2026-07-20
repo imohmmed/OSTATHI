@@ -14,7 +14,7 @@ import { ProgressBar } from './ProgressBar';
 import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = SCREEN_W - 40; // full-width style, 20px padding each side
+const CARD_W = SCREEN_W - 32; // 16px each side
 
 interface CourseCardProps {
   title: string;
@@ -151,7 +151,7 @@ export function CourseCard({
 const styles = StyleSheet.create({
   wrapper: {
     width: CARD_W,
-    marginLeft: 16,
+    marginHorizontal: 16,
   },
   card: {
     borderRadius: 22,
