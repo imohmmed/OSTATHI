@@ -299,16 +299,6 @@ export default function LessonEditScreen() {
           },
         ]}
       >
-        <TouchableOpacity onPress={() => router.back()} style={S.headerBtn}>
-          <Text style={[S.cancelText, { fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>
-            إلغاء
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={[S.headerTitle, { fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>
-          تعديل المحاضرة
-        </Text>
-
         <TouchableOpacity
           onPress={handleSave}
           disabled={updateLesson.isPending}
@@ -316,6 +306,16 @@ export default function LessonEditScreen() {
         >
           <Text style={[S.saveBtnText, { fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
             {updateLesson.isPending ? '...' : 'حفظ'}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[S.headerTitle, { fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>
+          تعديل المحاضرة
+        </Text>
+
+        <TouchableOpacity onPress={() => router.back()} style={S.headerBtn}>
+          <Text style={[S.cancelText, { fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>
+            رجوع
           </Text>
         </TouchableOpacity>
       </View>
