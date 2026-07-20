@@ -326,14 +326,16 @@ export default function SubjectDetailScreen() {
               </Text>
             )}
 
-            {/* Teacher cards — horizontal scroll when multiple */}
-            <ScrollView
+            {/* Teacher cards — horizontal scroll, first card on right (RTL) */}
+            <FlatList
               horizontal
+              inverted
+              data={section.teachers}
+              keyExtractor={(t) => String(t.id)}
+              renderItem={({ item }) => renderTeacherCard(item)}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: 16, paddingLeft: 16, gap: 12, flexDirection: 'row-reverse' }}
-            >
-              {section.teachers.map(t => renderTeacherCard(t))}
-            </ScrollView>
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            />
           </View>
         ))}
       </ScrollView>
