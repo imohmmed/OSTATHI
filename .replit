@@ -21,3 +21,9 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+TELEGRAM_BOT_TOKEN = "8831117418:AAGu1jOccIMYjH_rawkE3uiSlSeK9sLSaJM"
+TELEGRAM_CHAT_ID = "-1003384801807"
