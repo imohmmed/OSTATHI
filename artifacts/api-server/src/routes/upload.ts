@@ -177,4 +177,112 @@ router.delete("/upload/video/cancel/:uploadId", (req, res): void => {
   res.json({ ok: true });
 });
 
+// ── POST /upload/video/from-url ──────────────────────────────────────────
+// يستقبل رابط mp4 أو m3u8، يحمّله ويرفعه إلى Spaces، يُعيد رابط stream
+// Body: { url: string }
+router.post("/upload/video/from-url", async (req, res): Promise<void> => {
+  const { url } = req.body as { url?: string };
+
+  if (!url || typeof url !== "string") {
+    res.status(400).json({ error: "الرابط مطلوب" });
+    return;
+  }
+
+  let parsedUrl: URL;
+  try { parsedUrl = new URL(url); } catch {
+    res.status(400).json({ error: "الرابط غير صالح" });
+    return;
+  }
+
+  const pathname = parsedUrl.pathname.toLowerCase();
+  const isM3u8 = pathname.endsWith(".m3u8") || pathname.includes(".m3u8");
+
+  // ── m3u8: نحفظه كـ playlist file في Spaces ─────────────────────────────
+  if (isM3u8) {
+    if (!SPACES_ENABLED) {
+      // fallback: أعد الرابط كما هو
+      res.json({ url, type: "m3u8", stored: false });
+      return;
+    }
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.m3u8`;
+      const key = `videos/${filename}`;
+      // رفع الـ m3u8 كنص
+      const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+      await spacesClient.send(new PutObjectCommand({
+        Bucket: process.env["SPACES_BUCKET"] ?? "ostathibackup",
+        Key: key,
+        Body: text,
+        ContentType: "application/vnd.apple.mpegurl",
+        ACL: "private",
+      }));
+      const streamUrl = `/api/upload/video/stream/${encodeURIComponent(filename)}`;
+      res.json({ url: streamUrl, type: "m3u8", stored: true, filename });
+    } catch (err) {
+      console.error("m3u8 fetch/upload failed:", err);
+      // fallback: أعد الرابط الأصلي
+      res.json({ url, type: "m3u8", stored: false });
+    }
+    return;
+  }
+
+  // ── mp4 / رابط مباشر: حمّل ورفع إلى Spaces ──────────────────────────────
+  if (!SPACES_ENABLED) {
+    res.json({ url, type: "mp4", stored: false });
+    return;
+  }
+
+  const ext = (pathname.match(/\.(mp4|m4v|mov|avi|mkv|webm)$/)?.[1] ?? "mp4").toLowerCase();
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const tempPath  = path.join(videosDir, filename);
+  const spacesKey = `videos/${filename}`;
+
+  try {
+    // تحميل الملف كـ stream
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const contentType =
+      response.headers.get("content-type") ?? "video/mp4";
+
+    // حفظ مؤقت على الديسك
+    const nodeStream = require("node:stream");
+    const ws = fs.createWriteStream(tempPath);
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("لا يمكن قراءة البيانات");
+
+    await new Promise<void>((resolve, reject) => {
+      const pump = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) { ws.end(); break; }
+            if (!ws.write(value)) await new Promise(r => ws.once("drain", r));
+          }
+          resolve();
+        } catch (e) { reject(e); }
+      };
+      ws.on("error", reject);
+      ws.on("finish", () => {});
+      pump();
+    });
+
+    // رفع إلى Spaces
+    await uploadToSpaces(tempPath, spacesKey, contentType);
+    fs.unlinkSync(tempPath);
+
+    const streamUrl = `/api/upload/video/stream/${encodeURIComponent(filename)}`;
+    res.json({ url: streamUrl, type: ext, stored: true, filename });
+  } catch (err: any) {
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    console.error("URL download/upload failed:", err);
+    res.status(500).json({ error: `فشل تحميل الفيديو: ${err.message ?? "خطأ غير معروف"}` });
+  }
+});
+
 export default router;

@@ -26,6 +26,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { useCreateLesson, getGetCourseQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useChunkedUpload } from '@/hooks/useChunkedUpload';
+import { useUrlToSpaces, needsSpacesStorage } from '@/hooks/useUrlToSpaces';
 
 // ─── Type registry ──────────────────────────────────────────────────────────────
 type LessonCategory = 'all' | 'exams' | 'upload';
@@ -182,9 +183,14 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   // ── Common fields
   const [title, setTitle] = useState('');
 
-  // ── Chunked video upload
+  // ── Chunked video upload (file)
   const { upload: uploadVideo, cancel: cancelUpload, reset: resetUpload,
           progress: uploadProgress, isUploading, error: uploadError } = useChunkedUpload();
+
+  // ── URL → Spaces
+  const { save: saveUrlToSpaces, cancel: cancelUrlSave, reset: resetUrlSave,
+          isUploading: isSavingUrl, isDone: isUrlSaved,
+          error: urlSaveError, resultUrl: savedUrl } = useUrlToSpaces();
 
   // ── Video
   const [videoSource, setVideoSource] = useState<'url' | 'file'>('url');
@@ -240,7 +246,7 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   const reset = () => {
     setActiveTab('all'); setSelectedType(null); setTitle('');
     setVideoSource('url'); setVideoUrl(''); setVideoFile(null);
-    setVideoFileSize(0); setUploadedVideoUrl(''); resetUpload();
+    setVideoFileSize(0); setUploadedVideoUrl(''); resetUpload(); resetUrlSave();
     setDurationMin('');
     setPdfSource('url'); setPdfUrl(''); setPdfFile(null);
     setRichHtml(''); setLinkUrl(''); setStreamUrl('');
@@ -382,7 +388,9 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
           if (!uploadedVideoUrl) { Alert.alert('خطأ', 'اختر ملف فيديو وانتظر اكتمال الرفع'); return; }
           contentUrl = uploadedVideoUrl;
         } else {
-          contentUrl = videoUrl.trim() || undefined;
+          if (isSavingUrl) { Alert.alert('تنبيه', 'انتظر حتى ينتهي الحفظ في تخزينك'); return; }
+          // لو تم الحفظ في Spaces استخدم الرابط المُعاد، وإلا استخدم الرابط الأصلي
+          contentUrl = (isUrlSaved && savedUrl) ? savedUrl : (videoUrl.trim() || undefined);
         }
         duration = durationMin ? Math.round(parseFloat(durationMin) * 60) : undefined;
         break;
@@ -478,11 +486,11 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
             {/* Right: submit */}
             <TouchableOpacity
               onPress={handleSubmit}
-              disabled={createLesson.isPending || creatingLivestream || isUploading}
-              style={[S.headerSide, S.addBtn, { backgroundColor: colors.primary, opacity: (createLesson.isPending || creatingLivestream || isUploading) ? 0.6 : 1 }]}
+              disabled={createLesson.isPending || creatingLivestream || isUploading || isSavingUrl}
+              style={[S.headerSide, S.addBtn, { backgroundColor: colors.primary, opacity: (createLesson.isPending || creatingLivestream || isUploading || isSavingUrl) ? 0.6 : 1 }]}
             >
               <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                {isUploading ? `${uploadProgress}%` : (createLesson.isPending || creatingLivestream) ? '...' : 'إضافة'}
+                {isUploading ? `${uploadProgress}%` : isSavingUrl ? '...' : (createLesson.isPending || creatingLivestream) ? '...' : 'إضافة'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -591,10 +599,84 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
                     {videoSource === 'url' ? (
                       <>
                         <FLabel text="رابط الفيديو (YouTube / mp4 / m3u8) *" fs={fs} colors={colors} />
-                        <RInput value={videoUrl} onChange={setVideoUrl} placeholder="https://..." colors={colors} fs={fs} />
-                        <Text style={[S.hint, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
-                          يدعم: YouTube، Vimeo، روابط mp4 و m3u8 المباشرة
-                        </Text>
+                        <RInput
+                          value={videoUrl}
+                          onChange={t => { setVideoUrl(t); if (isUrlSaved || urlSaveError) resetUrlSave(); }}
+                          placeholder="https://..."
+                          colors={colors} fs={fs}
+                        />
+
+                        {/* زر الحفظ في Spaces — يظهر فقط لروابط mp4/m3u8 */}
+                        {needsSpacesStorage(videoUrl) && !isUrlSaved && (
+                          <TouchableOpacity
+                            onPress={() => { if (!isSavingUrl) saveUrlToSpaces(videoUrl.trim()); }}
+                            disabled={isSavingUrl}
+                            style={[{
+                              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                              gap: 8, paddingVertical: 10, paddingHorizontal: 16,
+                              borderRadius: 10, marginTop: 4,
+                              backgroundColor: isSavingUrl ? colors.muted : colors.primary + '18',
+                              borderWidth: 1,
+                              borderColor: isSavingUrl ? colors.border : colors.primary,
+                            }]}
+                          >
+                            <Ionicons
+                              name={isSavingUrl ? 'cloud-upload' : 'cloud-upload-outline'}
+                              size={18}
+                              color={isSavingUrl ? colors.mutedForeground : colors.primary}
+                            />
+                            <Text style={[{
+                              color: isSavingUrl ? colors.mutedForeground : colors.primary,
+                              fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs,
+                            }]}>
+                              {isSavingUrl ? 'جارٍ الحفظ في تخزينك...' : '☁️ حفظ في تخزيني'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+
+                        {/* حالة: جارٍ الحفظ */}
+                        {isSavingUrl && (
+                          <View style={[S.note, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
+                            <Ionicons name="hourglass-outline" size={14} color={colors.primary} />
+                            <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, flex: 1, textAlign: 'right' }]}>
+                              يتم تحميل الفيديو وحفظه في تخزينك المحمي... قد يستغرق بعض الوقت
+                            </Text>
+                            <TouchableOpacity onPress={cancelUrlSave}>
+                              <Ionicons name="close-circle" size={18} color="#ef4444" />
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
+                        {/* حالة: تم الحفظ */}
+                        {isUrlSaved && (
+                          <View style={[S.note, { backgroundColor: '#22c55e14', borderColor: '#22c55e40' }]}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                            <Text style={[{ color: '#22c55e', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, flex: 1, textAlign: 'right' }]}>
+                              ✅ محفوظ في تخزينك — الرابط محمي ومؤمّن
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* حالة: خطأ */}
+                        {urlSaveError && (
+                          <View style={[S.errorBox]}>
+                            <Ionicons name="alert-circle-outline" size={14} color="#ef4444" />
+                            <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, flex: 1 }]}>
+                              {urlSaveError} — سيُحفظ الرابط الأصلي
+                            </Text>
+                          </View>
+                        )}
+
+                        {!needsSpacesStorage(videoUrl) && videoUrl.trim().length > 0 && (
+                          <Text style={[S.hint, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
+                            YouTube و Vimeo تُحفظ كروابط مباشرة
+                          </Text>
+                        )}
+                        {!videoUrl.trim() && (
+                          <Text style={[S.hint, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
+                            يدعم: YouTube، Vimeo، روابط mp4 و m3u8 المباشرة
+                          </Text>
+                        )}
                       </>
                     ) : (
                       <View style={{ gap: 10 }}>
