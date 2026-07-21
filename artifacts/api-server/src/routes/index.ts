@@ -15,6 +15,7 @@ import notificationsRouter from "./notifications";
 import bannersRouter from "./banners";
 import lessonsRouter from "./lessons";
 import chatRouter from "./chat";
+import mobileLivestreamsRouter from "./mobile-livestreams";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(notificationsRouter);
 router.use(bannersRouter);
 router.use(lessonsRouter);
 router.use(chatRouter);
+router.use(mobileLivestreamsRouter);
 
 export default router;

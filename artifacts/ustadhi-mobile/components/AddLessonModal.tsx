@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -199,6 +200,12 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
 
   // ── Livestream
   const [streamUrl, setStreamUrl] = useState('');
+  const [scheduledDate, setScheduledDate] = useState<Date>(() => {
+    const d = new Date(); d.setHours(d.getHours() + 1, 0, 0, 0); return d;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [creatingLivestream, setCreatingLivestream] = useState(false);
 
   // ── MCQ (multi-question)
   const [mcqQuestions, setMcqQuestions] = useState<McqQuestion[]>([defaultMcqQuestion()]);
@@ -228,6 +235,8 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
     setVideoSource('url'); setVideoUrl(''); setVideoFile(null); setDurationMin('');
     setPdfSource('url'); setPdfUrl(''); setPdfFile(null);
     setRichHtml(''); setLinkUrl(''); setStreamUrl('');
+    const d = new Date(); d.setHours(d.getHours() + 1, 0, 0, 0); setScheduledDate(d);
+    setShowDatePicker(false); setShowTimePicker(false);
     setMcqQuestions([defaultMcqQuestion()]);
     setTfQuestions([defaultTFQuestion()]); setTfPoints('2');
     setFbQuestions([defaultFbQuestion()]);
@@ -298,9 +307,49 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   };
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) { Alert.alert('خطأ', 'عنوان المحاضرة مطلوب'); return; }
     if (!selectedType) { Alert.alert('خطأ', 'اختر نوع المحاضرة'); return; }
+
+    // ── Livestream: create livestream record first, then lesson ──────────────
+    if (selectedType === 'livestream') {
+      if (scheduledDate < new Date()) { Alert.alert('خطأ', 'يرجى اختيار وقت في المستقبل'); return; }
+      setCreatingLivestream(true);
+      try {
+        const domain = process.env.EXPO_PUBLIC_DOMAIN;
+        const base = domain ? `https://${domain}` : '';
+        const r = await fetch(`${base}/api/mobile/teacher/livestreams`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            teacherId, courseId,
+            title: title.trim(),
+            scheduledAt: scheduledDate.toISOString(),
+          }),
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? 'فشل الإنشاء');
+        const ls = await r.json();
+        createLesson.mutate({
+          courseId,
+          data: {
+            title: title.trim(),
+            type: 'livestream' as any,
+            contentText: JSON.stringify({ livestreamId: ls.id }),
+            order: lessonsCount + 1,
+            isPublished: true,
+            teacherId,
+          } as any,
+        }, {
+          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetCourseQueryKey(courseId) }); reset(); onSuccess(); onClose(); },
+          onError: () => Alert.alert('خطأ', 'تم إنشاء البث لكن فشل حفظ المحاضرة'),
+        });
+      } catch (e: any) {
+        Alert.alert('خطأ', e.message);
+      } finally {
+        setCreatingLivestream(false);
+      }
+      return;
+    }
 
     let contentUrl: string | undefined;
     let contentText: string | undefined;
@@ -321,9 +370,6 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
       case 'link':
         if (!linkUrl.trim()) { Alert.alert('خطأ', 'الرابط مطلوب'); return; }
         contentUrl = linkUrl.trim();
-        break;
-      case 'livestream':
-        contentUrl = streamUrl.trim() || undefined;
         break;
       case 'mcq': {
         const invalid = mcqQuestions.findIndex(q => !q.question.trim() || !q.options.some(o => o.isCorrect));
@@ -407,11 +453,11 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
             {/* Right: submit */}
             <TouchableOpacity
               onPress={handleSubmit}
-              disabled={createLesson.isPending}
-              style={[S.headerSide, S.addBtn, { backgroundColor: colors.primary, opacity: createLesson.isPending ? 0.6 : 1 }]}
+              disabled={createLesson.isPending || creatingLivestream}
+              style={[S.headerSide, S.addBtn, { backgroundColor: colors.primary, opacity: (createLesson.isPending || creatingLivestream) ? 0.6 : 1 }]}
             >
               <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                {createLesson.isPending ? '...' : 'إضافة'}
+                {(createLesson.isPending || creatingLivestream) ? '...' : 'إضافة'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -616,15 +662,65 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
                 {selectedType === 'livestream' && (
                   <View style={S.formGroup}>
                     <NoteBox
-                      text="عند الضغط على 'إضافة' سيُنشأ البث وتصل إشعارات فورية لكل الطلاب المشتركين في هذه الدورة."
+                      text="اختر موعد البث — ستظهر للطلاب المشتركين تذكيرات تلقائية قبل البدء."
                       icon="megaphone-outline"
                       colors={colors} fs={fs}
                     />
-                    <FLabel text="رابط البث المباشر (اختياري)" fs={fs} colors={colors} />
-                    <RInput value={streamUrl} onChange={setStreamUrl} placeholder="rtmp:// أو https://..." colors={colors} fs={fs} />
-                    <Text style={[S.hint, { color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
-                      يمكنك إضافة الرابط لاحقاً قبل بدء البث
-                    </Text>
+
+                    {/* Date row */}
+                    <FLabel text="تاريخ البث *" fs={fs} colors={colors} />
+                    <TouchableOpacity
+                      onPress={() => { setShowDatePicker(true); setShowTimePicker(false); }}
+                      style={[S.input, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }]}
+                    >
+                      <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }}>
+                        {scheduledDate.toLocaleDateString('ar-IQ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+
+                    {/* Time row */}
+                    <FLabel text="وقت البث *" fs={fs} colors={colors} />
+                    <TouchableOpacity
+                      onPress={() => { setShowTimePicker(true); setShowDatePicker(false); }}
+                      style={[S.input, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }]}
+                    >
+                      <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs }}>
+                        {scheduledDate.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <Ionicons name="time-outline" size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+
+                    {/* DateTimePickers */}
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={scheduledDate}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                        minimumDate={new Date()}
+                        onChange={(_, d) => { setShowDatePicker(false); if (d) { const nd = new Date(d); nd.setHours(scheduledDate.getHours(), scheduledDate.getMinutes()); setScheduledDate(nd); } }}
+                      />
+                    )}
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={scheduledDate}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(_, d) => { setShowTimePicker(false); if (d) { const nd = new Date(scheduledDate); nd.setHours(d.getHours(), d.getMinutes()); setScheduledDate(nd); } }}
+                      />
+                    )}
+
+                    {/* Summary card */}
+                    <View style={[{ borderRadius: 14, borderWidth: 1, padding: 14, marginTop: 4, backgroundColor: '#f59e0b' + '10', borderColor: '#f59e0b' + '40' }]}>
+                      <Text style={{ color: '#f59e0b', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs, textAlign: 'right' }}>
+                        🕐 موعد البث:
+                      </Text>
+                      <Text style={{ color: colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 14 * fs, textAlign: 'right', marginTop: 4 }}>
+                        {scheduledDate.toLocaleDateString('ar-IQ', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        {'  '}
+                        {scheduledDate.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
                   </View>
                 )}
 

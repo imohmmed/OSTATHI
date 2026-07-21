@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>بث مباشر</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;background:#000;color:#fff;font-family:Tajawal,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+#localVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
+#overlay{position:fixed;inset:0;pointer-events:none}
+
+/* top */
+#top{position:fixed;top:env(safe-area-inset-top,20px);left:0;right:0;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,transparent 100%)}
+#live-badge{background:#ef4444;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:.5px;animation:pulse 1.5s infinite}
+#timer{font-size:17px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.8);font-variant-numeric:tabular-nums}
+#vc{display:flex;align-items:center;gap:6px;font-size:14px;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:16px}
+
+/* controls */
+#ctrl{position:fixed;bottom:env(safe-area-inset-bottom,20px);left:0;right:0;padding:20px 32px;display:flex;align-items:center;justify-content:space-around;background:linear-gradient(to top,rgba(0,0,0,.8) 0%,transparent 100%)}
+.cbtn{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#fff;pointer-events:all}
+.cicon{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:.2s}
+.cbtn svg{width:26px;height:26px}
+#mute-btn .cicon{background:rgba(255,255,255,.2)}
+#mute-btn.muted .cicon{background:rgba(255,255,255,.9)}
+#mute-btn.muted svg{fill:#000}
+#flip-btn .cicon{background:rgba(255,255,255,.2)}
+#end-btn .cicon{background:#ef4444;width:68px;height:68px;box-shadow:0 4px 20px rgba(239,68,68,.5)}
+
+/* connecting */
+#conn{position:fixed;inset:0;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:50;transition:opacity .4s}
+#conn.hidden{opacity:0;pointer-events:none}
+.spin{width:44px;height:44px;border:3px solid rgba(255,255,255,.15);border-top-color:#D4A843;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* quality */
+#quality{position:fixed;top:env(safe-area-inset-top,20px);left:50%;transform:translateX(-50%);font-size:11px;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:12px;margin-top:48px}
+</style>
+</head>
+<body>
+
+<div id="conn">
+  <div class="spin"></div>
+  <p style="font-size:17px;font-weight:600">جاري إعداد الكاميرا…</p>
+  <p id="conn-msg" style="font-size:13px;opacity:.6;text-align:center;max-width:240px"></p>
+</div>
+
+<video id="localVideo" autoplay muted playsinline></video>
+
+<div id="top">
+  <div id="vc">👁 <span id="cnt">0</span></div>
+  <span id="live-badge">🔴 مباشر</span>
+  <span id="timer">00:00</span>
+</div>
+
+<div id="ctrl">
+  <button class="cbtn" id="flip-btn" onclick="flipCam()">
+    <div class="cicon">
+      <svg fill="white" viewBox="0 0 24 24"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 13c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+    </div>
+    <span>قلب</span>
+  </button>
+
+  <button class="cbtn" id="end-btn" onclick="endStream()">
+    <div class="cicon">
+      <svg fill="white" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </div>
+    <span>إنهاء</span>
+  </button>
+
+  <button class="cbtn" id="mute-btn" onclick="toggleMute()">
+    <div class="cicon">
+      <svg id="mic-icon" fill="white" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+    </div>
+    <span id="mic-lbl">مايك</span>
+  </button>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+<script>
+const p = new URLSearchParams(location.search);
+const streamId = p.get('id'), teacherId = p.get('teacherId');
+const ICE = [{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+
+let stream=null,facing='environment',muted=false;
+let peers={},socket=null,timerRef=null,startTs=Date.now();
+
+async function init(){
+  const msg=document.getElementById('conn-msg');
+  msg.textContent='يتم الوصول للكاميرا…';
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:facing,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},
+      audio:{echoCancellation:true,noiseSuppression:true}
+    });
+    document.getElementById('localVideo').srcObject=stream;
+    document.getElementById('localVideo').style.transform=facing==='user'?'scaleX(-1)':'none';
+    document.getElementById('conn').classList.add('hidden');
+    startTimer();
+    connect();
+  }catch(e){
+    document.getElementById('conn').innerHTML=
+      '<p style="font-size:48px">📷</p>'+
+      '<p style="color:#ef4444;font-size:16px;font-weight:700">لا يمكن الوصول للكاميرا</p>'+
+      '<p style="font-size:13px;opacity:.7;max-width:260px;text-align:center">'+e.message+'</p>';
+  }
+}
+
+function connect(){
+  socket=io(window.location.origin,{path:'/api/socket.io/',transports:['websocket','polling']});
+  socket.on('connect',()=>{socket.emit('broadcaster-join',{streamId,teacherId})});
+  socket.on('viewer-joined',({viewerId})=>sendOffer(viewerId));
+  socket.on('answer',async({from,answer})=>{if(peers[from])await peers[from].setRemoteDescription(new RTCSessionDescription(answer))});
+  socket.on('ice-candidate',async({from,candidate})=>{if(peers[from]&&candidate)try{await peers[from].addIceCandidate(new RTCIceCandidate(candidate))}catch{}});
+  socket.on('viewer-left',({viewerId})=>{closePeer(viewerId);updateCount()});
+}
+
+async function sendOffer(vid){
+  const pc=new RTCPeerConnection({iceServers:ICE});
+  peers[vid]=pc;
+  stream.getTracks().forEach(t=>pc.addTrack(t,stream));
+  pc.onicecandidate=e=>{if(e.candidate)socket.emit('ice-candidate',{to:vid,candidate:e.candidate})};
+  pc.onconnectionstatechange=()=>{if(['disconnected','failed','closed'].includes(pc.connectionState)){closePeer(vid);updateCount()}};
+  const offer=await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  socket.emit('offer',{to:vid,offer});
+  updateCount();
+}
+
+function closePeer(vid){if(peers[vid]){peers[vid].close();delete peers[vid]}}
+function updateCount(){document.getElementById('cnt').textContent=Object.keys(peers).length}
+
+async function flipCam(){
+  facing=facing==='environment'?'user':'environment';
+  stream.getTracks().forEach(t=>t.stop());
+  stream=await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:{echoCancellation:true,noiseSuppression:true}
+  });
+  document.getElementById('localVideo').srcObject=stream;
+  document.getElementById('localVideo').style.transform=facing==='user'?'scaleX(-1)':'none';
+  Object.values(peers).forEach(pc=>{
+    const vt=stream.getVideoTracks()[0],at=stream.getAudioTracks()[0];
+    pc.getSenders().forEach(s=>{if(s.track?.kind==='video'&&vt)s.replaceTrack(vt);if(s.track?.kind==='audio'&&at)s.replaceTrack(at)});
+  });
+}
+
+function toggleMute(){
+  muted=!muted;
+  stream.getAudioTracks().forEach(t=>t.enabled=!muted);
+  document.getElementById('mute-btn').classList.toggle('muted',muted);
+  document.getElementById('mic-lbl').textContent=muted?'صامت':'مايك';
+}
+
+function endStream(){
+  if(!confirm('هل تريد إنهاء البث المباشر؟'))return;
+  socket&&socket.emit('end-stream',{streamId});
+  stream?.getTracks().forEach(t=>t.stop());
+  clearInterval(timerRef);
+  if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'stream-ended'}));
+  else document.body.innerHTML='<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px"><div style="font-size:48px">✅</div><p style="font-size:18px;font-weight:700">انتهى البث</p></div>';
+}
+
+function startTimer(){
+  timerRef=setInterval(()=>{
+    const s=Math.floor((Date.now()-startTs)/1000);
+    document.getElementById('timer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  },1000);
+}
+
+init();
+</script>
+</body>
+</html>

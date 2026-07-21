@@ -220,8 +220,31 @@ export default function CourseDetailScreen() {
 
   const QUIZ_TYPES = ['mcq', 'true_false', 'fill_blank', 'qa', 'quiz'];
 
+  // Extract livestreamId from lesson contentText
+  const getLivestreamId = (lesson: Lesson): number | null => {
+    try {
+      const parsed = JSON.parse(lesson.contentText ?? '{}');
+      return parsed.livestreamId ?? null;
+    } catch { return null; }
+  };
+
   const handleLessonPress = useCallback(
     (lesson: Lesson) => {
+      // Livestream: teacher → broadcast, student → watch
+      if ((lesson as any).type === 'livestream') {
+        const lsId = getLivestreamId(lesson);
+        if (!lsId) {
+          Alert.alert('خطأ', 'لا يمكن العثور على معرف البث');
+          return;
+        }
+        if (isOwner) {
+          router.push({ pathname: '/livestream/broadcast/[id]' as any, params: { id: lsId } });
+        } else if (isStudent) {
+          router.push({ pathname: '/livestream/watch/[id]' as any, params: { id: lsId } });
+        }
+        return;
+      }
+
       if (isOwner) {
         // Teacher → edit screen
         router.push({
@@ -307,6 +330,21 @@ export default function CourseDetailScreen() {
           </>
         )}
       </LinearGradient>
+
+      {/* ── Live stream reminder banner ── */}
+      {!isLoading && (() => {
+        const now = new Date();
+        const liveLesson = orderedLessons.find(l => {
+          if ((l as any).type !== 'livestream') return false;
+          try {
+            const parsed = JSON.parse(l.contentText ?? '{}');
+            return parsed.livestreamId;
+          } catch { return false; }
+        });
+        if (!liveLesson) return null;
+        // Check for upcoming/live streams from the lesson list (we use a simple approach)
+        return null; // Reminder handled by the lesson card badge below
+      })()}
 
       {/* Stats */}
       {!isLoading && (

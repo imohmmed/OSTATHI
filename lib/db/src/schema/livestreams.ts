@@ -21,3 +21,12 @@ export const livestreamsTable = pgTable("livestreams", {
 export const insertLivestreamSchema = createInsertSchema(livestreamsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertLivestream = z.infer<typeof insertLivestreamSchema>;
 export type Livestream = typeof livestreamsTable.$inferSelect;
+
+export const livestreamCommentsTable = pgTable("livestream_comments", {
+  id: serial("id").primaryKey(),
+  livestreamId: integer("livestream_id").notNull().references(() => livestreamsTable.id, { onDelete: "cascade" }),
+  authorName: text("author_name").notNull(),
+  authorRole: text("author_role").notNull().default("student"),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

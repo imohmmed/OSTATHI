@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>مشاهدة البث</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;background:#000;color:#fff;font-family:Tajawal,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+
+#remoteVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+
+/* waiting */
+#waiting{position:fixed;inset:0;background:#0e0e0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:40}
+#waiting.hidden{display:none}
+.spin{width:44px;height:44px;border:3px solid rgba(255,255,255,.12);border-top-color:#D4A843;border-radius:50%;animation:spin .85s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ended */
+#ended{position:fixed;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:40}
+#ended.show{display:flex}
+
+/* top HUD */
+#hud{position:fixed;top:env(safe-area-inset-top,16px);left:0;right:0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,rgba(0,0,0,.8) 0%,transparent 100%);pointer-events:none}
+#live-badge{background:#ef4444;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;animation:pulse 1.5s infinite}
+#stream-title{font-size:13px;flex:1;text-align:center;margin:0 10px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#vc{font-size:13px;background:rgba(0,0,0,.45);padding:4px 10px;border-radius:14px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* bottom controls */
+#bottom{position:fixed;bottom:0;left:0;right:0;padding-bottom:env(safe-area-inset-bottom,16px);padding-left:12px;padding-right:12px;padding-top:0;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,transparent 100%)}
+
+/* comments */
+#comments-wrap{max-height:170px;overflow:hidden;display:flex;flex-direction:column-reverse;gap:6px;margin-bottom:10px;padding:8px 0}
+.cmt{display:inline-flex;flex-direction:column;align-self:flex-end;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:16px;padding:7px 12px;max-width:82%;animation:fadeUp .3s}
+.cmt .nm{font-size:11px;font-weight:700;color:#D4A843;margin-bottom:2px}
+.cmt .tx{font-size:13px;line-height:1.4}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}}
+
+/* input row */
+#irow{display:flex;align-items:center;gap:8px;padding-bottom:8px}
+#cinput{flex:1;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:24px;padding:10px 16px;color:#fff;font-size:14px;font-family:Tajawal,sans-serif;outline:none}
+#cinput::placeholder{color:rgba(255,255,255,.45)}
+
+.ibtn{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;background:rgba(255,255,255,.18);color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;transition:.15s}
+.ibtn:active{opacity:.7}
+.ibtn.active{background:rgba(255,255,255,.8);color:#000}
+#send-btn{background:#D4A843}
+
+/* fullscreen */
+video:fullscreen{object-fit:contain}
+</style>
+</head>
+<body>
+
+<div id="waiting">
+  <div class="spin"></div>
+  <p style="font-size:17px;font-weight:600">في انتظار بدء البث…</p>
+  <p id="wait-time" style="font-size:13px;opacity:.6;text-align:center;max-width:260px;line-height:1.6"></p>
+</div>
+
+<div id="ended">
+  <div style="font-size:52px">🎬</div>
+  <p style="font-size:19px;font-weight:700">انتهى البث</p>
+  <p style="font-size:14px;opacity:.65">شكراً لمشاهدتك</p>
+</div>
+
+<video id="remoteVideo" autoplay playsinline></video>
+
+<div id="hud">
+  <div id="vc">👁 <span id="cnt">0</span></div>
+  <span id="stream-title">تحميل…</span>
+  <span id="live-badge">🔴 مباشر</span>
+</div>
+
+<div id="bottom">
+  <div id="comments-wrap"></div>
+  <div id="irow">
+    <button class="ibtn" id="fs-btn" onclick="toggleFS()" title="ملء الشاشة">⛶</button>
+    <button class="ibtn" id="spk-btn" onclick="toggleMute()" title="الصوت">🔊</button>
+    <button class="ibtn" id="pip-btn" onclick="togglePiP()" title="PiP">⧉</button>
+    <input id="cinput" type="text" placeholder="اكتب تعليقاً…" dir="rtl" onkeydown="if(event.key==='Enter')send()">
+    <button class="ibtn" id="send-btn" onclick="send()">➤</button>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+<script>
+const p=new URLSearchParams(location.search);
+const streamId=p.get('id');
+const viewerId=p.get('viewerId')||('v_'+Math.random().toString(36).slice(2,8));
+const viewerName=decodeURIComponent(p.get('name')||'طالب');
+const ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+
+let pc=null,socket=null,spkMuted=false;
+
+function go(){
+  socket=io(window.location.origin,{path:'/api/socket.io/',transports:['websocket','polling']});
+
+  socket.on('connect',()=>{
+    socket.emit('viewer-join',{streamId,viewerId,viewerName});
+  });
+
+  socket.on('stream-info',({title,viewersCount})=>{
+    document.getElementById('stream-title').textContent=title||'بث مباشر';
+    document.getElementById('cnt').textContent=viewersCount||0;
+  });
+
+  socket.on('not-live',({scheduledAt})=>{
+    const el=document.getElementById('wait-time');
+    if(scheduledAt){
+      const d=new Date(scheduledAt);
+      el.textContent='موعد البث:\n'+d.toLocaleString('ar-IQ',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    }
+  });
+
+  socket.on('offer',async({offer})=>{
+    document.getElementById('waiting').classList.add('hidden');
+    pc=new RTCPeerConnection({iceServers:ICE});
+    const rs=new MediaStream();
+    document.getElementById('remoteVideo').srcObject=rs;
+    pc.ontrack=e=>{rs.addTrack(e.track)};
+    pc.onicecandidate=e=>{if(e.candidate)socket.emit('ice-candidate',{to:'broadcaster',streamId,candidate:e.candidate})};
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const ans=await pc.createAnswer();
+    await pc.setLocalDescription(ans);
+    socket.emit('answer',{streamId,answer:ans});
+  });
+
+  socket.on('ice-candidate',async({candidate})=>{
+    if(pc&&candidate)try{await pc.addIceCandidate(new RTCIceCandidate(candidate))}catch{}
+  });
+
+  socket.on('viewers-update',({count})=>{document.getElementById('cnt').textContent=count});
+
+  socket.on('new-comment',({name,text})=>addComment(name,text));
+
+  socket.on('stream-ended',()=>{
+    document.getElementById('waiting').classList.add('hidden');
+    document.getElementById('ended').classList.add('show');
+    document.getElementById('hud').style.display='none';
+    document.getElementById('bottom').style.display='none';
+    pc&&pc.close();
+    if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'stream-ended'}));
+  });
+}
+
+function addComment(name,text){
+  const w=document.getElementById('comments-wrap');
+  const el=document.createElement('div');el.className='cmt';
+  el.innerHTML='<div class="nm">'+name+'</div><div class="tx">'+text+'</div>';
+  w.insertBefore(el,w.firstChild);
+  while(w.children.length>25)w.removeChild(w.lastChild);
+}
+
+function send(){
+  const inp=document.getElementById('cinput');
+  const text=inp.value.trim();
+  if(!text)return;
+  socket.emit('comment',{streamId,name:viewerName,text});
+  addComment(viewerName+' (أنت)',text);
+  inp.value='';
+}
+
+function toggleMute(){
+  const v=document.getElementById('remoteVideo');
+  spkMuted=!spkMuted;
+  v.muted=spkMuted;
+  const b=document.getElementById('spk-btn');
+  b.textContent=spkMuted?'🔇':'🔊';
+  b.classList.toggle('active',spkMuted);
+}
+
+function toggleFS(){
+  const v=document.getElementById('remoteVideo');
+  if(!document.fullscreenElement)v.requestFullscreen?.()??v.webkitRequestFullscreen?.();
+  else document.exitFullscreen?.()??document.webkitExitFullscreen?.();
+}
+
+async function togglePiP(){
+  const v=document.getElementById('remoteVideo');
+  if(document.pictureInPictureElement)await document.exitPictureInPicture();
+  else if(document.pictureInPictureEnabled&&v.readyState>=2)await v.requestPictureInPicture();
+}
+
+go();
+</script>
+</body>
+</html>

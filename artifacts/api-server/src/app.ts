@@ -37,6 +37,10 @@ app.set("etag", "strong");
 const uploadsDir = path.join(process.cwd(), "uploads");
 app.use("/api/uploads", express.static(uploadsDir));
 
+// خدمة صفحات البث المباشر
+const streamDir = path.join(process.cwd(), "public", "stream");
+app.use("/api/stream", express.static(streamDir));
+
 app.use("/api", router);
 
 export default app;
