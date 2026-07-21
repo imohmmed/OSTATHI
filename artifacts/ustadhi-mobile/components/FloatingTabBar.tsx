@@ -1,6 +1,7 @@
 /**
  * FloatingTabBar — عائم ومستدير من كل الاتجاهات
  * يُستخدم على Android وأي منصة بدون Liquid Glass
+ * يدعم تخصيص الأيقونة والتسمية بحسب دور المستخدم
  */
 import React, { useEffect, useRef } from 'react';
 import {
@@ -14,44 +15,100 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useAuth } from '@/contexts/AuthContext';
+import type { UserRole } from '@/contexts/AuthContext';
 
 const NAV_BG   = '#101D36';
 const ACTIVE   = '#D4A843';
 const INACTIVE = 'rgba(255,255,255,0.50)';
-const PILL_BG  = 'rgba(212,168,67,0.18)';  // خلفية الـ pill للعنصر النشط
+const PILL_BG  = 'rgba(212,168,67,0.18)';
 
-// ─── خريطة الأيقونات لكل تاب ─────────────────────────────────────────
-const ICON_MAP: Record<string, { active: any; inactive: any; label: string }> = {
-  index:    { active: 'home',                  inactive: 'home-outline',                  label: 'الرئيسية' },
-  courses:  { active: 'book',                  inactive: 'book-outline',                  label: 'كورساتي'  },
-  chat:     { active: 'chatbubble-ellipses',   inactive: 'chatbubble-ellipses-outline',   label: 'التواصل'  },
-  students: { active: 'people',                inactive: 'people-outline',                label: 'طلابي'    },
-  settings: { active: 'settings',              inactive: 'settings-outline',              label: 'الإعدادات'},
+// ─── خريطة الأيقونات الأساسية (مشتركة بين الأدوار) ──────────────────
+type IconEntry = { active: string; inactive: string; label: string };
+
+const BASE_ICONS: Record<string, IconEntry> = {
+  index:    { active: 'home',                inactive: 'home-outline',                label: 'الرئيسية'  },
+  courses:  { active: 'book',                inactive: 'book-outline',                label: 'كورساتي'   },
+  chat:     { active: 'chatbubble-ellipses', inactive: 'chatbubble-ellipses-outline', label: 'التواصل'   },
+  students: { active: 'people',              inactive: 'people-outline',              label: 'طلابي'     },
+  settings: { active: 'settings',            inactive: 'settings-outline',            label: 'الإعدادات' },
 };
+
+// ─── تخصيص الأيقونات والتسميات بحسب الدور ───────────────────────────
+type RoleOverrides = Partial<Record<string, Partial<IconEntry>>>;
+
+const ROLE_OVERRIDES: Record<UserRole, RoleOverrides> = {
+  student: {},
+  teacher: {},
+  assistant: {
+    students: { label: 'طلابي' },
+  },
+  parent: {
+    students: {
+      active: 'heart',
+      inactive: 'heart-outline',
+      label: 'أبنائي',
+    },
+  },
+  admin: {
+    courses: {
+      active: 'library',
+      inactive: 'library-outline',
+      label: 'المقررات',
+    },
+    students: {
+      active: 'people-circle',
+      inactive: 'people-circle-outline',
+      label: 'المستخدمين',
+    },
+  },
+};
+
+function getIcons(routeName: string, role: UserRole): IconEntry {
+  const base = BASE_ICONS[routeName] ?? {
+    active: 'ellipse',
+    inactive: 'ellipse-outline',
+    label: routeName,
+  };
+  const overrides = ROLE_OVERRIDES[role]?.[routeName] ?? {};
+  return { ...base, ...overrides };
+}
 
 // ─── زر تاب واحد ─────────────────────────────────────────────────────
 function TabItem({
-  route,
+  routeName,
   focused,
   onPress,
-  label,
+  role,
+  labelOverride,
 }: {
-  route: { name: string };
+  routeName: string;
   focused: boolean;
   onPress: () => void;
-  label: string;
+  role: UserRole;
+  labelOverride?: string;
 }) {
   const scale  = useRef(new Animated.Value(focused ? 1 : 0.95)).current;
   const pillOp = useRef(new Animated.Value(focused ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(scale,  { toValue: focused ? 1 : 0.95, useNativeDriver: true, damping: 14, stiffness: 160 }),
-      Animated.timing(pillOp, { toValue: focused ? 1 : 0,    useNativeDriver: true, duration: 180 }),
+      Animated.spring(scale,  {
+        toValue: focused ? 1 : 0.95,
+        useNativeDriver: true,
+        damping: 14,
+        stiffness: 160,
+      }),
+      Animated.timing(pillOp, {
+        toValue: focused ? 1 : 0,
+        useNativeDriver: true,
+        duration: 180,
+      }),
     ]).start();
   }, [focused]);
 
-  const icons = ICON_MAP[route.name] ?? { active: 'ellipse', inactive: 'ellipse-outline', label };
+  const icons = getIcons(routeName, role);
+  const label = labelOverride || icons.label;
   const color = focused ? ACTIVE : INACTIVE;
 
   return (
@@ -61,15 +118,15 @@ function TabItem({
       android_ripple={null}
     >
       <Animated.View style={[styles.tabInner, { transform: [{ scale }] }]}>
-        {/* Pill خلفية النشط */}
+        {/* خلفية الـ pill للتاب النشط */}
         <Animated.View style={[styles.pill, { opacity: pillOp }]} />
 
         <Ionicons
-          name={focused ? icons.active : icons.inactive}
+          name={(focused ? icons.active : icons.inactive) as any}
           size={22}
           color={color}
         />
-        <Text style={[styles.label, { color }]}>{icons.label}</Text>
+        <Text style={[styles.label, { color }]}>{label}</Text>
       </Animated.View>
     </Pressable>
   );
@@ -79,10 +136,11 @@ function TabItem({
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 8);
+  const { user } = useAuth();
+  const role: UserRole = user?.role ?? 'student';
 
   const visibleRoutes = state.routes.filter((r) => {
     const opts = descriptors[r.key].options as any;
-    // expo-router sets href: null to hide a tab
     return opts.href !== null;
   });
 
@@ -96,10 +154,13 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           const { options } = descriptors[route.key];
           const focused = state.index === state.routes.indexOf(route as any);
 
-          const label =
+          // التسمية: نأخذ title من الـ options إذا وُجد (يعكس الدور)
+          const labelOverride =
             typeof options.tabBarLabel === 'string'
               ? options.tabBarLabel
-              : (options.title ?? route.name);
+              : typeof options.title === 'string'
+              ? options.title
+              : undefined;
 
           const onPress = () => {
             const event = navigation.emit({
@@ -115,10 +176,11 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           return (
             <TabItem
               key={route.key}
-              route={route}
+              routeName={route.name}
               focused={focused}
               onPress={onPress}
-              label={label}
+              role={role}
+              labelOverride={labelOverride}
             />
           );
         })}
@@ -134,7 +196,6 @@ const styles = StyleSheet.create({
     left: 18,
     right: 18,
     alignItems: 'stretch',
-    // لا نضع pointerEvents هنا — نتركه على الـ View الخارجي
   },
   bar: {
     flexDirection: 'row',
@@ -143,14 +204,11 @@ const styles = StyleSheet.create({
     height: 64,
     alignItems: 'center',
     paddingHorizontal: 6,
-    // ظل Android
     elevation: 20,
-    // ظل iOS (احتياطي)
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
-    // تأكد الحواف مستديرة على Android
     overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
   },
   tabItem: {
