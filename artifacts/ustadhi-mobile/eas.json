@@ -45,8 +45,8 @@
     "production": {
       "ios": {
         "appleId": "YOUR_APPLE_ID@email.com",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+        "ascAppId": "6793172611",
+        "appleTeamId": "PM27C7JC3M"
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-key.json",
