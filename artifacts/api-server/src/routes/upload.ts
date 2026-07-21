@@ -1,37 +1,32 @@
 /**
- * /api/upload — رفع الفيديوهات بتقنية Chunked Upload
+ * /api/upload — رفع الفيديوهات بتقنية Chunked Upload → DigitalOcean Spaces
  *
- * POST /upload/video/chunk   — استقبال جزء واحد (base64 JSON)
- * POST /upload/video/complete — تجميع الأجزاء وإرجاع رابط الفيديو
- * DELETE /upload/video/cancel/:uploadId — إلغاء وحذف الأجزاء المؤقتة
+ * POST   /upload/video/chunk          — استقبال جزء واحد (base64 JSON)
+ * POST   /upload/video/complete       — تجميع الأجزاء ورفعها إلى Spaces
+ * DELETE /upload/video/cancel/:id     — إلغاء وحذف الأجزاء المؤقتة
+ * GET    /upload/video/stream/:key    — توليد Signed URL مؤقت وإعادة التوجيه
  */
 import { Router, type IRouter } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { uploadToSpaces, getSignedVideoUrl, SPACES_ENABLED } from "../lib/spaces";
 
 const router: IRouter = Router();
 
-// ── مجلدات التخزين ────────────────────────────────────────────────────
+// ── مجلدات مؤقتة للأجزاء (تُحذف بعد الرفع إلى Spaces) ─────────────────
 const uploadsDir = path.join(process.cwd(), "uploads");
 const chunksDir  = path.join(uploadsDir, "chunks");
-const videosDir  = path.join(uploadsDir, "videos");
+const videosDir  = path.join(uploadsDir, "videos"); // fallback لو Spaces معطّل
 
 [chunksDir, videosDir].forEach((d) => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
-// ── صلاحيات uploadId ─────────────────────────────────────────────────
 function isValidId(id: string): boolean {
   return /^[a-zA-Z0-9_-]{8,64}$/.test(id);
 }
 
-function buildUrl(domain: string, filename: string): string {
-  const protocol = domain.includes("localhost") ? "http" : "https";
-  return `${protocol}://${domain}/api/uploads/videos/${filename}`;
-}
-
-// ── POST /upload/video/chunk ──────────────────────────────────────────
-// Body: { uploadId, chunkIndex, totalChunks, data (base64) }
+// ── POST /upload/video/chunk ─────────────────────────────────────────────
 router.post("/upload/video/chunk", (req, res): void => {
   const { uploadId, chunkIndex, data } = req.body as {
     uploadId: string;
@@ -59,8 +54,7 @@ router.post("/upload/video/chunk", (req, res): void => {
   res.json({ ok: true, chunkIndex });
 });
 
-// ── POST /upload/video/complete ───────────────────────────────────────
-// Body: { uploadId, totalChunks, filename }
+// ── POST /upload/video/complete ──────────────────────────────────────────
 router.post("/upload/video/complete", async (req, res): Promise<void> => {
   const { uploadId, totalChunks, filename } = req.body as {
     uploadId: string;
@@ -81,8 +75,7 @@ router.post("/upload/video/complete", async (req, res): Promise<void> => {
 
   // تحقق من وجود كل الأجزاء
   for (let i = 0; i < totalChunks; i++) {
-    const chunkPath = path.join(uploadDir, `chunk_${i}.bin`);
-    if (!fs.existsSync(chunkPath)) {
+    if (!fs.existsSync(path.join(uploadDir, `chunk_${i}.bin`))) {
       res.status(400).json({ error: `الجزء ${i} مفقود` });
       return;
     }
@@ -91,25 +84,24 @@ router.post("/upload/video/complete", async (req, res): Promise<void> => {
   // امتداد آمن
   const ext = path.extname(filename).toLowerCase();
   const safeExt = [".mp4", ".m4v", ".mov", ".avi", ".mkv", ".webm"].includes(ext)
-    ? ext
-    : ".mp4";
+    ? ext : ".mp4";
   const finalName = `${Date.now()}-${Math.random().toString(36).slice(2)}${safeExt}`;
-  const finalPath = path.join(videosDir, finalName);
+  const tempPath  = path.join(videosDir, finalName);
+  const spacesKey = `videos/${finalName}`;
 
+  // تجميع الأجزاء في ملف مؤقت
   try {
-    // تجميع الأجزاء
     await new Promise<void>((resolve, reject) => {
-      const ws = fs.createWriteStream(finalPath);
+      const ws = fs.createWriteStream(tempPath);
       ws.on("finish", resolve);
       ws.on("error", reject);
       for (let i = 0; i < totalChunks; i++) {
-        const chunk = fs.readFileSync(path.join(uploadDir, `chunk_${i}.bin`));
-        ws.write(chunk);
+        ws.write(fs.readFileSync(path.join(uploadDir, `chunk_${i}.bin`)));
       }
       ws.end();
     });
-  } catch (err) {
-    if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
+  } catch {
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     res.status(500).json({ error: "فشل تجميع الملف" });
     return;
   }
@@ -117,13 +109,61 @@ router.post("/upload/video/complete", async (req, res): Promise<void> => {
   // حذف الأجزاء المؤقتة
   fs.rmSync(uploadDir, { recursive: true, force: true });
 
-  const domain = process.env["REPLIT_DEV_DOMAIN"] ?? "localhost";
-  const url = buildUrl(domain, finalName);
+  let url: string;
 
-  res.json({ url, filename: finalName });
+  if (SPACES_ENABLED) {
+    // ── رفع إلى Spaces وحذف الملف المحلي ──────────────────────────────
+    try {
+      const mimeMap: Record<string, string> = {
+        ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime",
+        ".avi": "video/x-msvideo", ".mkv": "video/x-matroska", ".webm": "video/webm",
+      };
+      await uploadToSpaces(tempPath, spacesKey, mimeMap[safeExt] ?? "video/mp4");
+      fs.unlinkSync(tempPath); // حذف الملف المحلي بعد الرفع
+      // الرابط المُعاد هو endpoint الـ stream الداخلي (filename فقط بدون videos/)
+      url = `/api/upload/video/stream/${encodeURIComponent(finalName)}`;
+    } catch (err) {
+      // fallback: لو فشل الرفع لـ Spaces نحتفظ بالملف محلياً
+      console.error("Spaces upload failed, using local fallback:", err);
+      const domain = process.env["API_DOMAIN"] ?? process.env["REPLIT_DEV_DOMAIN"] ?? "localhost";
+      const protocol = domain.includes("localhost") ? "http" : "https";
+      url = `${protocol}://${domain}/api/uploads/videos/${finalName}`;
+    }
+  } else {
+    // ── وضع التطوير: تخزين محلي ────────────────────────────────────────
+    const domain = process.env["REPLIT_DEV_DOMAIN"] ?? "localhost";
+    const protocol = domain.includes("localhost") ? "http" : "https";
+    url = `${protocol}://${domain}/api/uploads/videos/${finalName}`;
+  }
+
+  res.json({ url, filename: finalName, key: spacesKey });
 });
 
-// ── DELETE /upload/video/cancel/:uploadId ────────────────────────────
+// ── GET /upload/video/stream/:filename ───────────────────────────────────
+// يولّد Signed URL مؤقت (ساعتان) ويعيد التوجيه إليه
+// مشغل الفيديو يتبع الـ redirect تلقائياً
+// :filename = اسم الملف فقط بدون مسار (مثل: 1234567890-abc123.mp4)
+router.get("/upload/video/stream/:filename", async (req, res): Promise<void> => {
+  const filename = req.params["filename"] ?? "";
+
+  if (!filename || filename.includes("/") || filename.includes("..")) {
+    res.status(400).json({ error: "اسم ملف غير صالح" });
+    return;
+  }
+
+  const key = `videos/${decodeURIComponent(filename)}`;
+
+  try {
+    const signedUrl = await getSignedVideoUrl(key, 7200);
+    // إعادة التوجيه — مشغل الفيديو يتبعه بشكل تلقائي
+    res.redirect(302, signedUrl);
+  } catch (err) {
+    console.error("Signed URL generation failed:", err);
+    res.status(500).json({ error: "فشل توليد رابط التشغيل" });
+  }
+});
+
+// ── DELETE /upload/video/cancel/:uploadId ────────────────────────────────
 router.delete("/upload/video/cancel/:uploadId", (req, res): void => {
   const { uploadId } = req.params;
   if (!isValidId(uploadId)) {

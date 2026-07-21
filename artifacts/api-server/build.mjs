@@ -60,7 +60,7 @@ async function buildAll() {
       "@mikro-orm/*",
       "@grpc/*",
       "@swc/*",
-      "@aws-sdk/*",
+      // "@aws-sdk/*", // مدمج في البندل لدعم DigitalOcean Spaces
       "@azure/*",
       "@opentelemetry/*",
       "@google-cloud/*",
@@ -70,7 +70,7 @@ async function buildAll() {
       "@parcel/watcher",
       "@sentry/profiling-node",
       "@tree-sitter/*",
-      "aws-sdk",
+      // "aws-sdk",
       "classic-level",
       "dd-trace",
       "ffi-napi",
