@@ -593,6 +593,7 @@ function StudentCourses() {
               title={course.title}
               teacherName={course.teacherName}
               subjectName={course.subjectName}
+              subjectImageUrl={(course as any).subjectImageUrl ?? null}
               lessonsCount={course.lessonsCount}
               thumbnailUrl={(course as any).thumbnailUrl ?? null}
               progress={progress?.[course.id] ?? 0}

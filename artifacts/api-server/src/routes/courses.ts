@@ -38,6 +38,7 @@ router.get("/courses", async (req, res): Promise<void> => {
       thumbnailUrl: coursesTable.thumbnailUrl,
       subjectId: coursesTable.subjectId,
       subjectName: subjectsTable.name,
+      subjectImageUrl: subjectsTable.imageUrl,
       gradeLevel: coursesTable.gradeLevel,
       teacherId: coursesTable.teacherId,
       teacherName: teachersTable.fullName,

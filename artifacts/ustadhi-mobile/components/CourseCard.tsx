@@ -21,6 +21,7 @@ interface CourseCardProps {
   teacherName?: string | null;
   teacherAvatarUrl?: string | null;
   subjectName?: string | null;
+  subjectImageUrl?: string | null;
   gradeLevel?: string | null;
   thumbnailUrl?: string | null;
   lessonsCount?: number;
@@ -35,6 +36,7 @@ export function CourseCard({
   teacherName,
   teacherAvatarUrl,
   subjectName,
+  subjectImageUrl,
   gradeLevel,
   thumbnailUrl,
   lessonsCount,
@@ -73,14 +75,20 @@ export function CourseCard({
               <Ionicons name="book" size={36} color="rgba(255,255,255,0.9)" />
             </View>
           )}
-          {/* Subject pill top-right */}
-          {subjectName && (
+          {/* Subject badge top-right: image if available, else text pill */}
+          {subjectImageUrl ? (
+            <Image
+              source={{ uri: subjectImageUrl }}
+              style={styles.subjectImageBadge}
+              resizeMode="cover"
+            />
+          ) : subjectName ? (
             <View style={[styles.subjectPill, { backgroundColor: 'rgba(16,29,54,0.78)' }]}>
               <Text style={[styles.subjectPillText, { fontFamily: 'Tajawal_500Medium' }]}>
                 {subjectName}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* ── Body ── */}
@@ -180,6 +188,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   subjectPillText: { color: '#fff', fontSize: 12 },
+  subjectImageBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
   body: {
     padding: 14,
     gap: 4,

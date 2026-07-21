@@ -277,6 +277,7 @@ export default function AllCoursesScreen() {
             teacherName={(item as any).teacherName}
             teacherAvatarUrl={(item as any).teacherAvatarUrl}
             subjectName={(item as any).subjectName}
+            subjectImageUrl={(item as any).subjectImageUrl}
             gradeLevel={(item as any).gradeLevel}
             thumbnailUrl={(item as any).thumbnailUrl}
             lessonsCount={item.lessonsCount}

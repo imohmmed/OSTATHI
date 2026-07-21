@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -21,6 +22,29 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+
+// ── قراءة صورة كـ base64 ──────────────────────────────────────────────────
+async function readImageBase64(uri: string): Promise<{ data: string; mimeType: string }> {
+  if (Platform.OS === 'web') {
+    const res = await fetch(uri);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const b64 = (reader.result as string).split(',')[1];
+        resolve({ data: b64, mimeType: blob.type || 'image/jpeg' });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  const FileSystem = await import('expo-file-system');
+  const data = await FileSystem.default.readAsStringAsync(uri, { encoding: 'base64' as any });
+  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
+  return { data, mimeType: mimeMap[ext] ?? 'image/jpeg' };
+}
 
 interface Teacher {
   id: number;
@@ -132,12 +156,55 @@ export default function SubjectDetailScreen() {
   });
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [linkSearch, setLinkSearch] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const adminToken = (user as any)?.adminToken;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   const base = domain ? `https://${domain}` : '';
   const { data: subject, isLoading, refetch } = useSubjectDetail(subjectId);
+  const qc = useQueryClient();
   const createTeacher = useCreateTeacher(adminToken);
+
+  // ── تعديل صورة المادة ─────────────────────────────────────────────────────
+  const handleEditImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('تنبيه', 'يجب السماح بالوصول للصور'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setUploadingImage(true);
+    try {
+      const uri = result.assets[0].uri;
+      const { data, mimeType } = await readImageBase64(uri);
+      // رفع الصورة
+      const upRes = await fetch(`${base}/api/upload/image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data, mimeType, filename: 'subject' }),
+      });
+      if (!upRes.ok) throw new Error('فشل رفع الصورة');
+      const { url } = await upRes.json();
+      const imageUrl = `${base}${url}`;
+      // تحديث المادة
+      const patchRes = await fetch(`${base}/api/subjects/${subjectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!patchRes.ok) throw new Error('فشل تحديث المادة');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refetch();
+      qc.invalidateQueries({ queryKey: ['getSubjects'] });
+    } catch (e: any) {
+      Alert.alert('خطأ', e.message ?? 'فشل');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const { data: allTeachers = [] } = useQuery<{ id: number; fullName: string; username: string }[]>({
     queryKey: ['all-teachers'],
@@ -265,6 +332,18 @@ export default function SubjectDetailScreen() {
       {/* Admin action buttons row */}
       {adminToken && (
         <View style={[S.adminBar, { borderBottomColor: c.border, backgroundColor: c.background }]}>
+          <TouchableOpacity
+            onPress={handleEditImage}
+            disabled={uploadingImage}
+            style={[S.adminBarBtn, { backgroundColor: '#f59e0b18', borderColor: '#f59e0b50', opacity: uploadingImage ? 0.6 : 1 }]}
+          >
+            {uploadingImage
+              ? <ActivityIndicator size="small" color="#f59e0b" />
+              : <Ionicons name="image-outline" size={16} color="#f59e0b" />}
+            <Text style={[{ color: '#f59e0b', fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>
+              {uploadingImage ? 'جارٍ...' : 'تعديل الصورة'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowLinkTeacher(true)}
             style={[S.adminBarBtn, { backgroundColor: `${c.primary}18`, borderColor: `${c.primary}50` }]}

@@ -22,6 +22,31 @@ const videosDir  = path.join(uploadsDir, "videos"); // fallback لو Spaces مع
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
+// ── POST /upload/image ────────────────────────────────────────────────────
+// رفع صورة واحدة (base64) — للمواد والأفاتار وغيرها
+// Body: { data: base64string, mimeType: string, filename?: string }
+// Returns: { url: string }
+router.post("/upload/image", (req, res): void => {
+  const { data, mimeType, filename } = req.body as {
+    data?: string; mimeType?: string; filename?: string;
+  };
+  if (!data || !mimeType) {
+    res.status(400).json({ error: "data و mimeType مطلوبان" });
+    return;
+  }
+  const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+  const safeName = (filename ?? "img").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 40);
+  const finalName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}.${ext}`;
+  const filePath  = path.join(uploadsDir, finalName);
+  try {
+    const buffer = Buffer.from(data, "base64");
+    fs.writeFileSync(filePath, buffer);
+    res.json({ url: `/api/uploads/${finalName}` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "فشل الحفظ" });
+  }
+});
+
 function isValidId(id: string): boolean {
   return /^[a-zA-Z0-9_-]{8,64}$/.test(id);
 }
