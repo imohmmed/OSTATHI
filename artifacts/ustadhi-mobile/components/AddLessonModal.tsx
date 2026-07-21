@@ -25,6 +25,7 @@ import { useApp } from '@/contexts/AppContext';
 import { RichTextEditor } from './RichTextEditor';
 import { useCreateLesson, getGetCourseQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useChunkedUpload } from '@/hooks/useChunkedUpload';
 
 // ─── Type registry ──────────────────────────────────────────────────────────────
 type LessonCategory = 'all' | 'exams' | 'upload';
@@ -181,10 +182,16 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   // ── Common fields
   const [title, setTitle] = useState('');
 
+  // ── Chunked video upload
+  const { upload: uploadVideo, cancel: cancelUpload, reset: resetUpload,
+          progress: uploadProgress, isUploading, error: uploadError } = useChunkedUpload();
+
   // ── Video
   const [videoSource, setVideoSource] = useState<'url' | 'file'>('url');
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<string | null>(null);
+  const [videoFileSize, setVideoFileSize] = useState<number>(0);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string>('');
   const [durationMin, setDurationMin] = useState('');
 
   // ── PDF
@@ -232,7 +239,9 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
   // ────────────────────────────────────────────────────────────────────────────
   const reset = () => {
     setActiveTab('all'); setSelectedType(null); setTitle('');
-    setVideoSource('url'); setVideoUrl(''); setVideoFile(null); setDurationMin('');
+    setVideoSource('url'); setVideoUrl(''); setVideoFile(null);
+    setVideoFileSize(0); setUploadedVideoUrl(''); resetUpload();
+    setDurationMin('');
     setPdfSource('url'); setPdfUrl(''); setPdfFile(null);
     setRichHtml(''); setLinkUrl(''); setStreamUrl('');
     const d = new Date(); d.setHours(d.getHours() + 1, 0, 0, 0); setScheduledDate(d);
@@ -247,15 +256,25 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
 
   const handleClose = () => { reset(); onClose(); };
 
-  // ── File picker ───────────────────────────────────────────────────────────
+  // ── File picker + auto-upload ─────────────────────────────────────────────
   const pickVideoFile = async () => {
+    if (isUploading) return; // لا تفتح المنتقي أثناء الرفع
     const result = await DocumentPicker.getDocumentAsync({
       type: ['video/*', 'video/mp4', 'video/x-m4v'],
       copyToCacheDirectory: true,
     });
     if (!result.canceled && result.assets[0]) {
-      setVideoFile(result.assets[0].name);
-      setVideoUrl(result.assets[0].uri);
+      const asset = result.assets[0];
+      setVideoFile(asset.name);
+      setVideoFileSize(asset.size ?? 0);
+      setUploadedVideoUrl(''); // أعد التعيين عند اختيار ملف جديد
+      // ابدأ الرفع تلقائياً
+      try {
+        const url = await uploadVideo(asset.uri, asset.size ?? 0, asset.name);
+        setUploadedVideoUrl(url);
+      } catch {
+        // الخطأ موجود في uploadError
+      }
     }
   };
 
@@ -358,7 +377,13 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
 
     switch (selectedType) {
       case 'video':
-        contentUrl = videoUrl.trim() || undefined;
+        if (videoSource === 'file') {
+          if (isUploading) { Alert.alert('تنبيه', 'انتظر حتى ينتهي رفع الفيديو'); return; }
+          if (!uploadedVideoUrl) { Alert.alert('خطأ', 'اختر ملف فيديو وانتظر اكتمال الرفع'); return; }
+          contentUrl = uploadedVideoUrl;
+        } else {
+          contentUrl = videoUrl.trim() || undefined;
+        }
         duration = durationMin ? Math.round(parseFloat(durationMin) * 60) : undefined;
         break;
       case 'pdf':
@@ -453,11 +478,11 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
             {/* Right: submit */}
             <TouchableOpacity
               onPress={handleSubmit}
-              disabled={createLesson.isPending || creatingLivestream}
-              style={[S.headerSide, S.addBtn, { backgroundColor: colors.primary, opacity: (createLesson.isPending || creatingLivestream) ? 0.6 : 1 }]}
+              disabled={createLesson.isPending || creatingLivestream || isUploading}
+              style={[S.headerSide, S.addBtn, { backgroundColor: colors.primary, opacity: (createLesson.isPending || creatingLivestream || isUploading) ? 0.6 : 1 }]}
             >
               <Text style={[{ color: '#fff', fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                {(createLesson.isPending || creatingLivestream) ? '...' : 'إضافة'}
+                {isUploading ? `${uploadProgress}%` : (createLesson.isPending || creatingLivestream) ? '...' : 'إضافة'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -572,18 +597,89 @@ export function AddLessonModal({ visible, courseId, teacherId, lessonsCount, onC
                         </Text>
                       </>
                     ) : (
-                      <TouchableOpacity
-                        onPress={pickVideoFile}
-                        style={[S.filePicker, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      >
-                        <Ionicons name="cloud-upload-outline" size={24} color={colors.primary} />
-                        <Text style={[{ color: colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
-                          {videoFile ?? 'اختر ملف فيديو'}
-                        </Text>
-                        <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
-                          mp4، m4v وصيغ أخرى
-                        </Text>
-                      </TouchableOpacity>
+                      <View style={{ gap: 10 }}>
+                        {/* زر الاختيار */}
+                        <TouchableOpacity
+                          onPress={pickVideoFile}
+                          disabled={isUploading}
+                          style={[S.filePicker, {
+                            backgroundColor: colors.card,
+                            borderColor: uploadedVideoUrl ? '#22c55e' : isUploading ? colors.primary : colors.border,
+                            opacity: isUploading ? 0.7 : 1,
+                          }]}
+                        >
+                          <Ionicons
+                            name={uploadedVideoUrl ? 'checkmark-circle' : isUploading ? 'cloud-upload' : 'cloud-upload-outline'}
+                            size={28}
+                            color={uploadedVideoUrl ? '#22c55e' : colors.primary}
+                          />
+                          <Text style={[{ color: uploadedVideoUrl ? '#22c55e' : colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
+                            {uploadedVideoUrl
+                              ? 'تم الرفع بنجاح ✓'
+                              : isUploading
+                              ? 'جاري الرفع...'
+                              : videoFile ?? 'اختر ملف فيديو'}
+                          </Text>
+                          {!isUploading && !uploadedVideoUrl && (
+                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
+                              mp4، m4v، mov وصيغ أخرى
+                            </Text>
+                          )}
+                          {videoFile && !uploadedVideoUrl && !isUploading && (
+                            <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 10 * fs }]}>
+                              {videoFile}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+
+                        {/* شريط التقدم — يظهر أثناء الرفع أو بعده */}
+                        {(isUploading || uploadedVideoUrl) && (
+                          <View style={{ gap: 6 }}>
+                            {/* النسبة والحجم */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text style={[{ color: uploadedVideoUrl ? '#22c55e' : colors.primary, fontFamily: 'Tajawal_700Bold', fontSize: 13 * fs }]}>
+                                {uploadedVideoUrl ? 'مكتمل' : `${uploadProgress}%`}
+                              </Text>
+                              {videoFileSize > 0 && (
+                                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}>
+                                  {(videoFileSize / (1024 * 1024)).toFixed(1)} MB
+                                </Text>
+                              )}
+                            </View>
+
+                            {/* الشريط */}
+                            <View style={[S.progressTrack, { backgroundColor: colors.muted }]}>
+                              <View style={[S.progressFill, {
+                                width: `${uploadedVideoUrl ? 100 : uploadProgress}%` as any,
+                                backgroundColor: uploadedVideoUrl ? '#22c55e' : colors.primary,
+                              }]} />
+                            </View>
+
+                            {/* رسالة خطأ */}
+                            {uploadError && (
+                              <View style={[S.errorBox]}>
+                                <Ionicons name="alert-circle-outline" size={14} color="#ef4444" />
+                                <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, flex: 1 }]}>
+                                  {uploadError}
+                                </Text>
+                              </View>
+                            )}
+
+                            {/* زر الإلغاء */}
+                            {isUploading && (
+                              <TouchableOpacity
+                                onPress={cancelUpload}
+                                style={[S.cancelUploadBtn, { borderColor: '#ef4444' }]}
+                              >
+                                <Ionicons name="close-circle-outline" size={16} color="#ef4444" />
+                                <Text style={[{ color: '#ef4444', fontFamily: 'Tajawal_500Medium', fontSize: 13 * fs }]}>
+                                  إلغاء الرفع
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+                      </View>
                     )}
 
                     <FLabel text="مدة الفيديو (بالدقائق)" fs={fs} colors={colors} />
@@ -1243,6 +1339,12 @@ const S = StyleSheet.create({
   // Quiz builder
   quizTypePicker: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
   quizTypeOption: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1 },
+
+  // Progress bar (chunked upload)
+  progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden', width: '100%' },
+  progressFill:  { height: 8, borderRadius: 4 },
+  errorBox:      { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, padding: 10, borderRadius: 10, backgroundColor: '#fef2f2' },
+  cancelUploadBtn: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
 
   // Shared
   rowField: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, justifyContent: 'flex-start' },
