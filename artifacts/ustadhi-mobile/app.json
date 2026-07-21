@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.ustadhi.mobile",
       "buildNumber": "1",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "نحتاج إلى الكاميرا لبث الدروس المباشرة",
         "NSMicrophoneUsageDescription": "نحتاج إلى الميكروفون لبث الدروس المباشرة",
         "NSPhotoLibraryUsageDescription": "نحتاج إلى الصور لتحميل الصور الشخصية"
@@ -63,6 +64,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "extra": {}
+    "extra": {
+      "eas": {
+        "projectId": "3f6bf174-111d-4eaa-841a-f67467ca9267"
+      }
+    },
+    "owner": "itmohmmed"
   }
 }
