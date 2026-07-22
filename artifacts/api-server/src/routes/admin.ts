@@ -25,11 +25,19 @@ export function requireAdmin(req: any, res: any, next: any) {
     }
   }
 
-  if (!sessionId || !sessions.has(sessionId)) {
-    res.status(401).json({ error: "Unauthorized" });
+  if (sessionId && sessions.has(sessionId)) {
+    next();
     return;
   }
-  next();
+
+  // Also accept x-admin-token (mobile app sends the admin password directly)
+  const adminToken = req.headers["x-admin-token"] as string | undefined;
+  if (adminToken && adminToken === ADMIN_PASSWORD) {
+    next();
+    return;
+  }
+
+  res.status(401).json({ error: "Unauthorized" });
 }
 
 router.post("/admin/login", async (req, res): Promise<void> => {

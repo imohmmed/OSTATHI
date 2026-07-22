@@ -3,4 +3,5 @@
 - [Messages backend](messages-backend.md) — messages table + /api/messages routes for student→teacher messaging and teacher replies; no JWT yet, uses plain IDs in request body.
 - [Teacher course creation](teacher-course-creation.md) — POST /teachers/:id/courses bypasses requireAdmin so teacher can create own courses from mobile; admin still uses POST /courses.
 - [GET /teachers/:id public](teachers-public.md) — made public (removed requireAdmin) so mobile teacher detail page can fetch subjects+studentsCount; subjects array joined in response.
+- [VPS deployment mechanics](vps-deployment.md) — phone loads from VPS Metro, API runs compiled dist; Replit edits do nothing until scp-synced + rebuilt + restarted.
 - [isTrial on courses](istrial-courses.md) — boolean field added to coursesTable; GET /courses supports ?isTrial=true filter; admin courses page has amber-styled isTrial checkbox.

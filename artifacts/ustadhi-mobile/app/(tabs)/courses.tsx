@@ -638,8 +638,8 @@ function AdminSubjects() {
       </View>
 
       <FlatList
-        data={subjects ?? []}
-        keyExtractor={(s) => String(s.id)}
+        data={Array.isArray(subjects) ? subjects.filter(s => s && s.id != null) : []}
+        keyExtractor={(s, i) => String(s?.id ?? `idx-${i}`)}
         numColumns={2}
         columnWrapperStyle={{ paddingHorizontal: 12, gap: 12, justifyContent: 'flex-end' }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />}
