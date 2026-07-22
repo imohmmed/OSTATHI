@@ -7,6 +7,7 @@ export const parentsTable = pgTable("parents", {
   id: serial("id").primaryKey(),
   fullName: text("full_name").notNull(),
   phone: text("phone").notNull(),
+  email: text("email"),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),

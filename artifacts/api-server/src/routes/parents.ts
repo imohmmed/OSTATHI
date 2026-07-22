@@ -21,23 +21,27 @@ router.get("/parents", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.post("/parents", requireAdmin, async (req, res): Promise<void> => {
-  const { fullName, phone, username, password, studentId } = req.body;
+  const { fullName, phone, email, username, password, studentId } = req.body;
   if (!fullName || !phone || !username || !password || !studentId) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
-  const [parent] = await db.insert(parentsTable).values({ fullName, phone, username, password, studentId }).returning();
-  const [student] = await db.select({ fullName: studentsTable.fullName }).from(studentsTable).where(eq(studentsTable.id, studentId));
+  const [parent] = await db.insert(parentsTable).values({
+    fullName, phone, username, password,
+    email: email || null,
+    studentId: Number(studentId),
+  }).returning();
+  const [student] = await db.select({ fullName: studentsTable.fullName }).from(studentsTable).where(eq(studentsTable.id, Number(studentId)));
   res.status(201).json({ ...parent, password: undefined, studentName: student?.fullName ?? null });
 });
 
 router.patch("/parents/:id", requireAdmin, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  const { fullName, phone, username, password, studentId } = req.body;
+  const id = parseInt(req.params.id, 10);
+  const { fullName, phone, email, username, password, studentId } = req.body;
   const updates: Record<string, any> = {};
   if (fullName !== undefined) updates.fullName = fullName;
   if (phone !== undefined) updates.phone = phone;
+  if (email !== undefined) updates.email = email || null;
   if (username !== undefined) updates.username = username;
   if (password !== undefined) updates.password = password;
   if (studentId !== undefined) updates.studentId = studentId;
@@ -52,8 +56,7 @@ router.patch("/parents/:id", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.delete("/parents/:id", requireAdmin, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
+  const id = parseInt(req.params.id, 10);
   await db.delete(parentsTable).where(eq(parentsTable.id, id));
   res.sendStatus(204);
 });

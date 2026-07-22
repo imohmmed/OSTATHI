@@ -1,14 +1,19 @@
 import { pgTable, text, serial, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { teachersTable } from "./teachers";
+import { subjectsTable } from "./subjects";
 
 export const studentsTable = pgTable("students", {
   id: serial("id").primaryKey(),
   fullName: text("full_name").notNull(),
   phone: text("phone").notNull(),
+  email: text("email"),
   gradeLevel: text("grade_level").notNull(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  teacherId: integer("teacher_id").references(() => teachersTable.id, { onDelete: "set null" }),
+  subjectId: integer("subject_id").references(() => subjectsTable.id, { onDelete: "set null" }),
   parentName: text("parent_name"),
   parentPhone: text("parent_phone"),
   isActive: boolean("is_active").notNull().default(true),
