@@ -34,13 +34,21 @@ const SUBJECT_COLORS = [
   '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
 ];
 
+// الصفوف الثابتة للمنصة
 const GRADE_LEVELS = [
-  'سادس ابتدائي',
-  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
-  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
-  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
-  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+  'ثالث متوسط',
+  'رابع اعدادي - علمي',
+  'رابع اعدادي - ادبي',
+  'خامس اعدادي - علمي',
+  'خامس اعدادي - ادبي',
+  'سادس اعدادي - علمي',
+  'سادس اعدادي - ادبي',
 ];
+
+function parseGradeLevels(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return raw ? [raw] : []; }
+}
 
 // ── helper: قراءة صورة كـ base64 ──────────────────────────────────────────
 async function readImageBase64(uri: string): Promise<{ data: string; mimeType: string }> {
@@ -64,7 +72,6 @@ async function readImageBase64(uri: string): Promise<{ data: string; mimeType: s
   return { data, mimeType: mimeMap[ext] ?? 'image/jpeg' };
 }
 
-// ── upload image to server ────────────────────────────────────────────────
 async function uploadImage(uri: string, domain: string | undefined): Promise<string> {
   const base = domain ? `https://${domain}` : '';
   const { data, mimeType } = await readImageBase64(uri);
@@ -96,14 +103,19 @@ export default function SubjectsScreen() {
   // ── Add modal state ───────────────────────────────────────────────────────
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
-  const [icon, setIcon] = useState('');
-  const [gradeLevel, setGradeLevel] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const resetForm = () => {
-    setName(''); setIcon(''); setGradeLevel(''); setDescription(''); setImageUri(null);
+    setName(''); setDescription(''); setSelectedGrades([]); setImageUri(null);
+  };
+
+  const toggleGrade = (g: string) => {
+    setSelectedGrades(prev =>
+      prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]
+    );
   };
 
   const pickImage = async () => {
@@ -111,9 +123,9 @@ export default function SubjectsScreen() {
     if (!perm.granted) { Alert.alert('تنبيه', 'يجب السماح بالوصول للصور'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
+      quality: 0.85,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [1, 1], // مربعة
     });
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
@@ -122,26 +134,32 @@ export default function SubjectsScreen() {
 
   const handleCreate = async () => {
     if (!name.trim()) { Alert.alert('خطأ', 'اسم المادة مطلوب'); return; }
-    if (!gradeLevel) { Alert.alert('خطأ', 'اختر الصف الدراسي'); return; }
+    if (selectedGrades.length === 0) { Alert.alert('خطأ', 'اختر صفاً دراسياً على الأقل'); return; }
 
     setSaving(true);
     try {
-      // رفع الصورة أولاً إن وُجدت
       let imageUrl: string | null = null;
       if (imageUri) {
-        imageUrl = `${base}${await uploadImage(imageUri, domain)}`;
+        const relUrl = await uploadImage(imageUri, domain);
+        imageUrl = `${base}${relUrl}`;
       }
 
       const res = await fetch(`${base}/api/subjects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
-        body: JSON.stringify({ name: name.trim(), icon: icon.trim() || null, gradeLevel, description: description.trim() || null }),
+        body: JSON.stringify({
+          name: name.trim(),
+          gradeLevel: selectedGrades[0],
+          gradeLevels: JSON.stringify(selectedGrades),
+          description: description.trim() || null,
+          imageUrl,
+        }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'فشل');
       const subject = await res.json();
 
-      // رفع الصورة بعد الإنشاء
-      if (imageUrl) {
+      // Update imageUrl if needed
+      if (imageUrl && !subject.imageUrl) {
         await fetch(`${base}/api/subjects/${subject.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken ?? '' },
@@ -163,6 +181,7 @@ export default function SubjectsScreen() {
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const accent = SUBJECT_COLORS[index % SUBJECT_COLORS.length];
     const hasImage = !!item.imageUrl;
+    const grades = parseGradeLevels(item.gradeLevels);
 
     return (
       <TouchableOpacity
@@ -181,7 +200,6 @@ export default function SubjectsScreen() {
             )}
           </View>
         )}
-        {/* اسم المادة يظهر دائماً تحت الصورة */}
         <View style={styles.cardInfo}>
           <Text
             style={[styles.name, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 15 * fs }]}
@@ -189,14 +207,14 @@ export default function SubjectsScreen() {
           >
             {item.name}
           </Text>
-          {item.gradeLevel ? (
+          {(grades.length > 0 || item.gradeLevel) && (
             <Text
               style={[styles.grade, { color: accent, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs }]}
               numberOfLines={1}
             >
-              {item.gradeLevel}
+              {grades.length > 1 ? `${grades.length} صفوف` : (grades[0] || item.gradeLevel)}
             </Text>
-          ) : null}
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -247,15 +265,20 @@ export default function SubjectsScreen() {
       )}
 
       {/* ── Add Subject Modal ─────────────────────────────────────────────── */}
-      <Modal visible={showAdd} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowAdd(false); resetForm(); }}>
+      <Modal
+        visible={showAdd}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setShowAdd(false); resetForm(); }}
+      >
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.modal, { backgroundColor: colors.background }]}>
-            {/* Header */}
+            {/* Modal Header */}
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <TouchableOpacity onPress={() => { setShowAdd(false); resetForm(); }}>
                 <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_500Medium', fontSize: 15 * fs }]}>إلغاء</Text>
               </TouchableOpacity>
-              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>إضافة مادة</Text>
+              <Text style={[{ color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 17 * fs }]}>إضافة مادة جديدة</Text>
               <TouchableOpacity
                 onPress={handleCreate}
                 disabled={saving}
@@ -272,17 +295,23 @@ export default function SubjectsScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={[styles.modalBody, { paddingBottom: 40 + insets.bottom }]}
             >
-              {/* صورة المادة */}
-              <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              {/* صورة مربعة */}
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'Tajawal_700Bold', fontSize: 11 * fs }]}>
+                صورة المادة (مربعة)
+              </Text>
+              <TouchableOpacity
+                onPress={pickImage}
+                style={[styles.squareImagePicker, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              >
                 {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.imagePickerImg} resizeMode="cover" />
+                  <Image source={{ uri: imageUri }} style={styles.squareImagePickerImg} resizeMode="cover" />
                 ) : (
-                  <>
-                    <Ionicons name="camera-outline" size={32} color={colors.mutedForeground} />
-                    <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs, marginTop: 6 }]}>
-                      اضغط لاختيار صورة المادة
+                  <View style={styles.imagePlaceholder}>
+                    <Ionicons name="camera-outline" size={30} color={colors.mutedForeground} />
+                    <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 12 * fs, marginTop: 6, textAlign: 'center' }]}>
+                      اضغط لاختيار صورة مربعة
                     </Text>
-                  </>
+                  </View>
                 )}
               </TouchableOpacity>
 
@@ -294,37 +323,50 @@ export default function SubjectsScreen() {
                 style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 15 * fs }]}
               />
 
-              {/* أيقونة */}
-              <Text style={[styles.label, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>أيقونة (إيموجي)</Text>
-              <TextInput
-                value={icon} onChangeText={setIcon} placeholder="📚"
-                placeholderTextColor={colors.mutedForeground} textAlign="center"
-                style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 24 * fs, textAlign: 'center', width: 80 }]}
-              />
+              {/* الصفوف الدراسية - multi select */}
+              <Text style={[styles.label, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>
+                الصفوف التابعة لهذه المادة *
+              </Text>
+              <View style={styles.gradesGrid}>
+                {GRADE_LEVELS.map(gl => {
+                  const selected = selectedGrades.includes(gl);
+                  return (
+                    <TouchableOpacity
+                      key={gl}
+                      onPress={() => toggleGrade(gl)}
+                      style={[
+                        styles.gradeChip,
+                        {
+                          backgroundColor: selected ? colors.primary : colors.muted,
+                          borderColor: selected ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      {selected && (
+                        <Ionicons name="checkmark" size={12} color="#fff" style={{ marginLeft: 2 }} />
+                      )}
+                      <Text style={[{
+                        color: selected ? '#fff' : colors.foreground,
+                        fontFamily: 'Tajawal_500Medium',
+                        fontSize: 12 * fs,
+                      }]}>
+                        {gl}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-              {/* الصف الدراسي */}
-              <Text style={[styles.label, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>الصف الدراسي *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row-reverse', paddingBottom: 4 }}>
-                {GRADE_LEVELS.map(gl => (
-                  <TouchableOpacity
-                    key={gl}
-                    onPress={() => setGradeLevel(gl)}
-                    style={[styles.gradeChip, {
-                      backgroundColor: gradeLevel === gl ? colors.primary : colors.muted,
-                      borderColor: gradeLevel === gl ? colors.primary : colors.border,
-                    }]}
-                  >
-                    <Text style={[{ color: gradeLevel === gl ? '#fff' : colors.foreground, fontFamily: 'Tajawal_500Medium', fontSize: 12 * fs }]}>
-                      {gl}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {selectedGrades.length > 0 && (
+                <Text style={[{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 11 * fs, textAlign: 'right', marginTop: 4 }]}>
+                  ✓ {selectedGrades.length} صف{selectedGrades.length > 1 ? 'وف' : ''} مختار{selectedGrades.length > 1 ? 'ة' : ''}
+                </Text>
+              )}
 
               {/* وصف */}
               <Text style={[styles.label, { color: colors.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 14 * fs }]}>وصف (اختياري)</Text>
               <TextInput
-                value={description} onChangeText={setDescription} placeholder="وصف المادة..."
+                value={description} onChangeText={setDescription} placeholder="وصف مختصر للمادة..."
                 placeholderTextColor={colors.mutedForeground} textAlign="right"
                 multiline numberOfLines={3}
                 style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, minHeight: 80, textAlignVertical: 'top' }]}
@@ -349,22 +391,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 180,
   },
-  cardImage: {
-    width: '100%',
-    aspectRatio: 1,
-  },
-  iconWrap: {
-    width: '100%',
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  cardImage: { width: '100%', aspectRatio: 1 },
+  iconWrap: { width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   iconEmoji: { fontSize: 40 },
-  cardInfo: {
-    padding: 10,
-    gap: 3,
-    alignItems: 'center',
-  },
+  cardInfo: { padding: 10, gap: 3, alignItems: 'center' },
   name: { textAlign: 'center' },
   grade: { textAlign: 'center' },
   emptyWrap: { alignItems: 'center', gap: 12, marginTop: 80 },
@@ -382,28 +412,46 @@ const styles = StyleSheet.create({
   },
   saveBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10 },
   modalBody: { padding: 16, gap: 10 },
-  label: { textAlign: 'right' },
+  sectionLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+    textAlign: 'right',
+  },
+  label: { textAlign: 'right', marginTop: 4 },
   input: {
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  imagePicker: {
-    height: 160,
-    borderRadius: 16,
+  // square image picker
+  squareImagePicker: {
+    width: 140,
+    height: 140,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
-    marginBottom: 4,
+    alignSelf: 'center',
+    marginVertical: 8,
   },
-  imagePickerImg: { width: '100%', height: '100%' },
+  squareImagePickerImg: { width: '100%', height: '100%' },
+  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  // grade chips grid
+  gradesGrid: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
   gradeChip: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingVertical: 8,
+    borderRadius: 999,
     borderWidth: 1,
   },
 });

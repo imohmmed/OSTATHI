@@ -6,6 +6,7 @@ export const bannersTable = pgTable("banners", {
   linkUrl: text("link_url"),
   orderIndex: integer("order_index").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  mediaType: text("media_type").notNull().default("image"), // "image" | "video"
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

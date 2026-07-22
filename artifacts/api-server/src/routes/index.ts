@@ -17,6 +17,7 @@ import lessonsRouter from "./lessons";
 import chatRouter from "./chat";
 import mobileLivestreamsRouter from "./mobile-livestreams";
 import uploadRouter from "./upload";
+import teacherReviewsRouter from "./teacher-reviews";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(lessonsRouter);
 router.use(chatRouter);
 router.use(mobileLivestreamsRouter);
 router.use(uploadRouter);
+router.use(teacherReviewsRouter);
 
 export default router;

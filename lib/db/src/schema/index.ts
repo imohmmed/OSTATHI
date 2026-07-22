@@ -10,3 +10,4 @@ export * from "./messages";
 export { chatMessagesTable } from "./messages";
 export * from "./banners";
 export { lessonReactionsTable, lessonVideoProgressTable } from "./courses";
+export { teacherReviewsTable } from "./teachers";

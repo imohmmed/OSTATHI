@@ -90,7 +90,7 @@ router.get("/teachers", async (req, res): Promise<void> => {
 
 // POST /teachers — admin only
 router.post("/teachers", requireAdmin, async (req, res): Promise<void> => {
-  const { fullName, phone, username, password, bio, avatarUrl, subjectIds, gradeLevels } = req.body;
+  const { fullName, phone, username, password, bio, avatarUrl, coverImageUrl, trialLessonUrl, trialLessonType, subjectIds, gradeLevels } = req.body;
   if (!fullName || !phone || !username || !password) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -99,6 +99,9 @@ router.post("/teachers", requireAdmin, async (req, res): Promise<void> => {
     fullName, phone, username, password,
     bio: bio || "",
     avatarUrl: avatarUrl || null,
+    coverImageUrl: coverImageUrl || null,
+    trialLessonUrl: trialLessonUrl || null,
+    trialLessonType: trialLessonType || "url",
   }).returning();
 
   if (subjectIds?.length) {
@@ -132,7 +135,7 @@ router.get("/teachers/:id", async (req, res): Promise<void> => {
 router.patch("/teachers/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { fullName, phone, username, password, bio, avatarUrl, subjectIds, gradeLevels, isActive } = req.body;
+  const { fullName, phone, username, password, bio, avatarUrl, coverImageUrl, trialLessonUrl, trialLessonType, subjectIds, gradeLevels, isActive } = req.body;
   const updates: Record<string, any> = {};
   if (fullName !== undefined) updates.fullName = fullName;
   if (phone !== undefined) updates.phone = phone;
@@ -140,6 +143,9 @@ router.patch("/teachers/:id", requireAdmin, async (req, res): Promise<void> => {
   if (password !== undefined) updates.password = password;
   if (bio !== undefined) updates.bio = bio;
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl || null;
+  if (coverImageUrl !== undefined) updates.coverImageUrl = coverImageUrl || null;
+  if (trialLessonUrl !== undefined) updates.trialLessonUrl = trialLessonUrl || null;
+  if (trialLessonType !== undefined) updates.trialLessonType = trialLessonType;
   if (isActive !== undefined) updates.isActive = isActive;
 
   const [teacher] = await db.update(teachersTable).set(updates).where(eq(teachersTable.id, id)).returning();
