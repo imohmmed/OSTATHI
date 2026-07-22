@@ -447,6 +447,222 @@ router.get("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): P
   res.json({ ...subject, teachers });
 });
 
+// ══════════════════════════════════════════════════════
+//   ADMIN — TEACHERS MANAGEMENT (LIST / DELETE)
+// ══════════════════════════════════════════════════════
+
+// ── GET /mobile/admin/teachers — قائمة كل الأساتذة ────
+router.get("/mobile/admin/teachers", requireMobileAdmin, async (req, res): Promise<void> => {
+  const search = (req.query.search as string | undefined)?.trim();
+  let teachers = await db.select({
+    id: teachersTable.id,
+    fullName: teachersTable.fullName,
+    username: teachersTable.username,
+    phone: teachersTable.phone,
+    bio: teachersTable.bio,
+    avatarUrl: teachersTable.avatarUrl,
+    isActive: teachersTable.isActive,
+    createdAt: teachersTable.createdAt,
+  }).from(teachersTable);
+  if (search) {
+    const s = search.toLowerCase();
+    teachers = teachers.filter(t =>
+      t.fullName.toLowerCase().includes(s) ||
+      t.username.toLowerCase().includes(s) ||
+      (t.phone ?? "").includes(s)
+    );
+  }
+  // أضف المواد لكل أستاذ
+  const result = await Promise.all(teachers.map(async t => {
+    const subjects = await db
+      .select({ id: subjectsTable.id, name: subjectsTable.name, icon: subjectsTable.icon })
+      .from(teacherSubjectsTable)
+      .innerJoin(subjectsTable, eq(teacherSubjectsTable.subjectId, subjectsTable.id))
+      .where(eq(teacherSubjectsTable.teacherId, t.id));
+    return { ...t, subjects };
+  }));
+  res.json(result);
+});
+
+// ── DELETE /mobile/admin/teachers/:id ─────────────────
+router.delete("/mobile/admin/teachers/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(teacherSubjectsTable).where(eq(teacherSubjectsTable.teacherId, id));
+  await db.delete(teacherGradeLevelsTable).where(eq(teacherGradeLevelsTable.teacherId, id));
+  await db.delete(assistantsTable).where(eq(assistantsTable.teacherId, id));
+  await db.delete(teachersTable).where(eq(teachersTable.id, id));
+  res.sendStatus(204);
+});
+
+// ── DELETE /mobile/admin/students/:id ─────────────────
+router.delete("/mobile/admin/students/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(studentCoursesTable).where(eq(studentCoursesTable.studentId, id));
+  await db.delete(studentSubjectsTable).where(eq(studentSubjectsTable.studentId, id));
+  await db.delete(parentsTable).where(eq(parentsTable.studentId, id));
+  await db.delete(studentsTable).where(eq(studentsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ══════════════════════════════════════════════════════
+//   ADMIN — ASSISTANTS CRUD
+// ══════════════════════════════════════════════════════
+
+// ── GET /mobile/admin/assistants ──────────────────────
+router.get("/mobile/admin/assistants", requireMobileAdmin, async (req, res): Promise<void> => {
+  const assistants = await db.select({
+    id: assistantsTable.id,
+    fullName: assistantsTable.fullName,
+    username: assistantsTable.username,
+    phone: assistantsTable.phone,
+    isActive: assistantsTable.isActive,
+    teacherId: assistantsTable.teacherId,
+  }).from(assistantsTable);
+  const result = await Promise.all(assistants.map(async a => {
+    const [teacher] = await db.select({ id: teachersTable.id, fullName: teachersTable.fullName })
+      .from(teachersTable).where(eq(teachersTable.id, a.teacherId));
+    return { ...a, teacher: teacher ?? null };
+  }));
+  res.json(result);
+});
+
+// ── POST /mobile/admin/assistants ─────────────────────
+router.post("/mobile/admin/assistants", requireMobileAdmin, async (req, res): Promise<void> => {
+  const { fullName, username, password, phone, teacherId, isActive } = req.body ?? {};
+  if (!fullName || !username || !password || !teacherId) {
+    res.status(400).json({ error: "fullName و username و password و teacherId مطلوبة" });
+    return;
+  }
+  try {
+    const [assistant] = await db.insert(assistantsTable).values({
+      fullName, username, password, phone: phone ?? "",
+      teacherId: parseInt(teacherId, 10),
+      isActive: isActive ?? true,
+    }).returning();
+    res.status(201).json({ ...assistant, password: undefined });
+  } catch {
+    res.status(409).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+  }
+});
+
+// ── PUT /mobile/admin/assistants/:id ─────────────────
+router.put("/mobile/admin/assistants/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { fullName, phone, username, password, isActive, teacherId } = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+  if (fullName !== undefined) updates.fullName = fullName;
+  if (phone !== undefined) updates.phone = phone;
+  if (username !== undefined) updates.username = username;
+  if (password !== undefined && password !== "") updates.password = password;
+  if (isActive !== undefined) updates.isActive = isActive;
+  if (teacherId !== undefined) updates.teacherId = parseInt(teacherId, 10);
+  try {
+    const [assistant] = await db.update(assistantsTable).set(updates).where(eq(assistantsTable.id, id)).returning();
+    if (!assistant) { res.status(404).json({ error: "المساعد غير موجود" }); return; }
+    res.json({ ...assistant, password: undefined });
+  } catch {
+    res.status(409).json({ error: "اسم المستخدم مستخدم مسبقاً" });
+  }
+});
+
+// ── DELETE /mobile/admin/assistants/:id ───────────────
+router.delete("/mobile/admin/assistants/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(assistantsTable).where(eq(assistantsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ══════════════════════════════════════════════════════
+//   ADMIN — PARENTS MANAGEMENT (LIST / UPDATE / DELETE)
+// ══════════════════════════════════════════════════════
+
+// ── GET /mobile/admin/parents ─────────────────────────
+router.get("/mobile/admin/parents", requireMobileAdmin, async (req, res): Promise<void> => {
+  const parents = await db.select({
+    id: parentsTable.id,
+    fullName: parentsTable.fullName,
+    username: parentsTable.username,
+    phone: parentsTable.phone,
+    studentId: parentsTable.studentId,
+  }).from(parentsTable);
+  const result = await Promise.all(parents.map(async p => {
+    const [student] = await db.select({ id: studentsTable.id, fullName: studentsTable.fullName, gradeLevel: studentsTable.gradeLevel })
+      .from(studentsTable).where(eq(studentsTable.id, p.studentId));
+    return { ...p, student: student ?? null };
+  }));
+  res.json(result);
+});
+
+// ── PUT /mobile/admin/parents/:id ─────────────────────
+router.put("/mobile/admin/parents/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { fullName, phone, username, password } = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+  if (fullName !== undefined) updates.fullName = fullName;
+  if (phone !== undefined) updates.phone = phone;
+  if (username !== undefined) updates.username = username;
+  if (password !== undefined && password !== "") updates.password = password;
+  const [parent] = await db.update(parentsTable).set(updates).where(eq(parentsTable.id, id)).returning();
+  if (!parent) { res.status(404).json({ error: "ولي الأمر غير موجود" }); return; }
+  res.json({ ...parent, password: undefined });
+});
+
+// ── DELETE /mobile/admin/parents/:id ─────────────────
+router.delete("/mobile/admin/parents/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(parentsTable).where(eq(parentsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ══════════════════════════════════════════════════════
+//   ADMIN — SUBJECTS CRUD
+// ══════════════════════════════════════════════════════
+
+// ── POST /mobile/admin/subjects ───────────────────────
+router.post("/mobile/admin/subjects", requireMobileAdmin, async (req, res): Promise<void> => {
+  const { name, icon, gradeLevel, description, imageUrl } = req.body ?? {};
+  if (!name || !gradeLevel) {
+    res.status(400).json({ error: "name و gradeLevel مطلوبان" });
+    return;
+  }
+  const [subject] = await db.insert(subjectsTable).values({
+    name, icon: icon ?? null, gradeLevel, description: description ?? null, imageUrl: imageUrl ?? null,
+  }).returning();
+  res.status(201).json(subject);
+});
+
+// ── PATCH /mobile/admin/subjects/:id ─────────────────
+router.patch("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { name, icon, gradeLevel, description, imageUrl } = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+  if (name !== undefined) updates.name = name;
+  if (icon !== undefined) updates.icon = icon;
+  if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
+  if (description !== undefined) updates.description = description;
+  if (imageUrl !== undefined) updates.imageUrl = imageUrl;
+  const [subject] = await db.update(subjectsTable).set(updates).where(eq(subjectsTable.id, id)).returning();
+  if (!subject) { res.status(404).json({ error: "المادة غير موجودة" }); return; }
+  res.json(subject);
+});
+
+// ── DELETE /mobile/admin/subjects/:id ─────────────────
+router.delete("/mobile/admin/subjects/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(teacherSubjectsTable).where(eq(teacherSubjectsTable.subjectId, id));
+  await db.delete(studentSubjectsTable).where(eq(studentSubjectsTable.subjectId, id));
+  await db.delete(subjectsTable).where(eq(subjectsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ── DELETE /mobile/admin/courses/:id ─────────────────
+router.delete("/mobile/admin/courses/:id", requireMobileAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  await db.delete(studentCoursesTable).where(eq(studentCoursesTable.courseId, id));
+  await db.delete(coursesTable).where(eq(coursesTable.id, id));
+  res.sendStatus(204);
+});
+
 // ── Mobile Parent: معلومات الطفل الكاملة ─────────────
 router.get("/mobile/parent/child", async (req, res): Promise<void> => {
   const parentId = parseInt(req.headers["x-parent-id"] as string, 10);

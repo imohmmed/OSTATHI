@@ -369,6 +369,47 @@ export default function SettingsScreen() {
           />
         </SettingGroup>
 
+        {/* ── لوحة تحكم الأدمن ── */}
+        {(user as any)?.adminToken && (
+          <>
+            <SectionLabel title="لوحة التحكم" fs={fs} color={colors.mutedForeground} />
+            <SettingGroup colors={colors}>
+              <GroupRow
+                icon="person-outline"
+                iconBg="#3b82f6"
+                label="إدارة الأساتذة"
+                colors={colors}
+                fs={fs}
+                onPress={() => router.push('/admin/teachers' as any)}
+              />
+              <GroupRow
+                icon="people-outline"
+                iconBg="#8b5cf6"
+                label="إدارة المساعدين"
+                colors={colors}
+                fs={fs}
+                onPress={() => router.push('/admin/assistants' as any)}
+              />
+              <GroupRow
+                icon="people-circle-outline"
+                iconBg="#10b981"
+                label="إدارة أولياء الأمور"
+                colors={colors}
+                fs={fs}
+                onPress={() => router.push('/admin/parents' as any)}
+              />
+              <GroupRow
+                icon="book-outline"
+                iconBg="#f59e0b"
+                label="إدارة المواد"
+                colors={colors}
+                fs={fs}
+                onPress={() => router.push('/subjects' as any)}
+              />
+            </SettingGroup>
+          </>
+        )}
+
         {/* ── تسجيل الخروج ── */}
         {isLoggedIn && (
           <>
