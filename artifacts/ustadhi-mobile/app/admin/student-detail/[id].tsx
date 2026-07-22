@@ -11,7 +11,8 @@ import {
   View,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { PageHeader } from '@/components/PageHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -59,11 +60,10 @@ function useAllSubjects() {
 }
 
 const GRADE_LEVELS = [
-  'سادس ابتدائي',
-  'اول متوسط', 'ثاني متوسط', 'ثالث متوسط',
-  'رابع اعدادي علمي', 'رابع اعدادي ادبي',
-  'خامس اعدادي علمي', 'خامس اعدادي ادبي',
-  'سادس اعدادي علمي', 'سادس اعدادي ادبي',
+  'ثالث متوسط',
+  'رابع اعدادي - علمي', 'رابع اعدادي - ادبي',
+  'خامس اعدادي - علمي', 'خامس اعدادي - ادبي',
+  'سادس اعدادي - علمي', 'سادس اعدادي - ادبي',
 ];
 
 export default function AdminStudentDetailScreen() {
@@ -160,17 +160,18 @@ export default function AdminStudentDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
-      <Stack.Screen options={{ title: student.fullName, headerBackTitle: 'رجوع' }} />
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: 12, borderBottomColor: c.border }]}>
-        <View style={{ width: 36 }} />
-        <Text style={[{ color: c.foreground, fontFamily: 'Tajawal_700Bold', fontSize: 18 * fs, flex: 1, textAlign: 'center' }]}>
-          {student.fullName}
-        </Text>
-        <TouchableOpacity onPress={startEdit} style={{ width: 36, alignItems: 'center' }}>
-          <Ionicons name="create-outline" size={22} color={c.primary} />
-        </TouchableOpacity>
-      </View>
+      <PageHeader
+        title={student.fullName}
+        onBack={() => router.back()}
+        backgroundColor={c.background}
+        tintColor={c.foreground}
+        borderColor={c.border}
+        right={
+          <TouchableOpacity onPress={startEdit} style={{ width: 36, alignItems: 'center' }}>
+            <Ionicons name="create-outline" size={22} color={c.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 100 + insets.bottom }} showsVerticalScrollIndicator={false}>
         {/* Info card */}
@@ -426,7 +427,6 @@ export default function AdminStudentDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, gap: 8 },
   card: { borderRadius: 24, borderWidth: 1, padding: 16, gap: 10 },
   sectionTitle: { textAlign: 'right' },
   cardHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
