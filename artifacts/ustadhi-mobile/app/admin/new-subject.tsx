@@ -34,8 +34,8 @@ async function readImageBase64(uri: string): Promise<{ data: string; mimeType: s
       reader.readAsDataURL(blob);
     });
   }
-  const FileSystem = await import('expo-file-system');
-  const data = await FileSystem.default.readAsStringAsync(uri, { encoding: 'base64' as any });
+  const FileSystem = await import('expo-file-system/legacy');
+  const data = await (FileSystem.readAsStringAsync ?? FileSystem.default.readAsStringAsync)(uri, { encoding: 'base64' as any });
   const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
   const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
   return { data, mimeType: mimeMap[ext] ?? 'image/jpeg' };
