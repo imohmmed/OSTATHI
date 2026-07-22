@@ -59,7 +59,7 @@ export default function AdminLogin() {
             <GraduationCap className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold text-foreground">منصة استاذي</CardTitle>
+            <CardTitle className="text-2xl font-bold text-foreground">منصة الرؤية الذهبية</CardTitle>
             <CardDescription className="text-base mt-2">تسجيل الدخول للوحة الإدارة</CardDescription>
           </div>
         </CardHeader>

@@ -87,10 +87,10 @@ export default function LoginScreen() {
             <Ionicons name="school" size={40} color="#101D36" />
           </View>
           <Text style={[styles.logoText, { fontFamily: 'Tajawal_900Black', fontSize: 32 * fs, color: '#fff' }]}>
-            استاذي
+            الرؤية الذهبية
           </Text>
           <Text style={[styles.logoSub, { fontFamily: 'Tajawal_400Regular', fontSize: 14 * fs, color: 'rgba(255,255,255,0.7)' }]}>
-            منصة استاذي التعليمية
+            منصة الرؤية الذهبية التعليمية
           </Text>
         </View>
 

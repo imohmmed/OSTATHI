@@ -264,7 +264,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center justify-between py-2">
             <span className="text-muted-foreground">المنصة</span>
-            <span className="font-medium">منصة استاذي التعليمية</span>
+            <span className="font-medium">منصة الرؤية الذهبية التعليمية</span>
           </div>
         </CardContent>
       </Card>

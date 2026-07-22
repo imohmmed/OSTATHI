@@ -71,7 +71,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <>
       <div className="p-6 border-b border-border">
         <Link href="/">
-          <h2 className="text-xl font-bold text-primary dark:text-white cursor-pointer">منصة استاذي</h2>
+          <h2 className="text-xl font-bold text-primary dark:text-white cursor-pointer">منصة الرؤية الذهبية</h2>
         </Link>
         <p className="text-xs text-muted-foreground mt-0.5">لوحة الإدارة</p>
         <div className="mt-3 flex items-center gap-2">
@@ -127,7 +127,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-        <h2 className="text-lg font-bold text-primary dark:text-white">منصة استاذي</h2>
+        <h2 className="text-lg font-bold text-primary dark:text-white">منصة الرؤية الذهبية</h2>
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">

@@ -47,7 +47,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 bg-primary rounded-3xl flex items-center justify-center">
                 <GraduationCap className="text-white w-6 h-6" />
               </div>
-              <span className="text-2xl font-black text-primary dark:text-white tracking-tight">استاذي</span>
+              <span className="text-2xl font-black text-primary dark:text-white tracking-tight">الرؤية الذهبية</span>
             </div>
             
             <nav className="hidden md:flex gap-8 items-center">
@@ -110,7 +110,7 @@ export default function LandingPage() {
       <section className="py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black text-foreground mb-4">لماذا تختار استاذي؟</h2>
+            <h2 className="text-3xl md:text-4xl font-black text-foreground mb-4">لماذا تختار الرؤية الذهبية؟</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">صممنا المنصة لتلبي كافة احتياجات الطالب العراقي بأسلوب عصري وتقنيات حديثة.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -281,7 +281,7 @@ export default function LandingPage() {
             
             <h2 className="text-3xl md:text-5xl font-black mb-6 relative z-10">تعلم في أي وقت ومن أي مكان</h2>
             <p className="text-xl text-blue-100 max-w-2xl mx-auto mb-10 relative z-10">
-              حمّل تطبيق استاذي الآن على هاتفك الذكي واستمتع بتجربة تعليمية فريدة، تحميل الفيديوهات لمشاهدتها بدون إنترنت، واستقبال إشعارات البث المباشر.
+              حمّل تطبيق الرؤية الذهبية الآن على هاتفك الذكي واستمتع بتجربة تعليمية فريدة، تحميل الفيديوهات لمشاهدتها بدون إنترنت، واستقبال إشعارات البث المباشر.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4 relative z-10">
               <Button size="lg" className="h-14 px-8 text-lg font-bold bg-black hover:bg-gray-900 text-white rounded-3xl">
@@ -304,7 +304,7 @@ export default function LandingPage() {
                 <div className="w-10 h-10 bg-primary rounded-3xl flex items-center justify-center">
                   <GraduationCap className="text-white w-6 h-6" />
                 </div>
-                <span className="text-2xl font-black text-primary tracking-tight">استاذي</span>
+                <span className="text-2xl font-black text-primary tracking-tight">الرؤية الذهبية</span>
               </div>
               <p className="text-muted-foreground leading-relaxed max-w-md">
                 المنصة التعليمية الأولى في العراق، نهدف للارتقاء بواقع التعليم من خلال دمج التكنولوجيا الحديثة بالكوادر التدريسية المتميزة.
@@ -339,7 +339,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-border pt-8 text-center text-muted-foreground text-sm flex flex-col md:flex-row justify-between items-center gap-4">
-            <p>جميع الحقوق محفوظة &copy; {new Date().getFullYear()} منصة استاذي التعليمية.</p>
+            <p>جميع الحقوق محفوظة &copy; {new Date().getFullYear()} منصة الرؤية الذهبية التعليمية.</p>
             <p>صُنع بكل <span className="text-red-500">❤️</span> من أجل طلاب العراق</p>
           </div>
         </div>

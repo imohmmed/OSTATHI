@@ -267,7 +267,7 @@ function StudentHome() {
         style={[styles.stickyHeader, { backgroundColor: colors.background, borderBottomColor: colors.border, opacity: headerOpacity, paddingTop: topPad }]}
         pointerEvents="none"
       >
-        <Text style={[styles.stickyTitle, { color: colors.primary, fontFamily: 'Tajawal_700Bold' }]}>استاذي</Text>
+        <Text style={[styles.stickyTitle, { color: colors.primary, fontFamily: 'Tajawal_700Bold' }]}>الرؤية الذهبية</Text>
       </Animated.View>
 
       <View style={[styles.themeBtn, { top: topPad + 12 }]}>
@@ -291,7 +291,7 @@ function StudentHome() {
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={[styles.hero, { paddingTop: topPad + 20 }]}
         >
-          <Text style={[styles.heroLogo, { fontFamily: 'Tajawal_900Black', color: '#fff' }]}>استاذي</Text>
+          <Text style={[styles.heroLogo, { fontFamily: 'Tajawal_900Black', color: '#fff' }]}>الرؤية الذهبية</Text>
           <Text style={[styles.heroTagline, { fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.85)', fontSize: 15 * fs }]}>
             نخبة من أفضل أساتذة العراق يقدمون{'\n'}تجربة تعليمية متكاملة
           </Text>
@@ -482,7 +482,7 @@ function AdminHome() {
             لوحة تحكم المدير
           </Text>
           <Text style={[{ fontFamily: 'Tajawal_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 13 * fs }]}>
-            منصة استاذي التعليمية
+            منصة الرؤية الذهبية التعليمية
           </Text>
 
           {/* Stats row */}

@@ -436,7 +436,7 @@ export default function SettingsScreen() {
 
         <View style={styles.appNameWrap}>
           <Text style={{ color: colors.mutedForeground, fontFamily: 'Tajawal_400Regular', fontSize: 13 * fs }}>
-            منصة استاذي التعليمية
+            منصة الرؤية الذهبية التعليمية
           </Text>
         </View>
       </ScrollView>
