@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/ustadhi-mobile/"
-title = "منصة استاذي - تطبيق الموبايل"
+title = "الرؤية الذهبية - تطبيق الموبايل"
 version = "1.0.0"
 id = "artifacts/ustadhi-mobile"
 router = "expo-domain"

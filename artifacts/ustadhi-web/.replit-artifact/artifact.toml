@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "منصة استاذي التعليمية"
+title = "الرؤية الذهبية"
 version = "1.0.0"
 id = "artifacts/ustadhi-web"
 router = "path"
