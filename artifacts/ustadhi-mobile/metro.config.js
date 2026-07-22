@@ -6,13 +6,22 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// Block server-only packages and pnpm temp files from Metro watcher
+// Force Metro to use the mobile app dir as project root,
+// overriding any pnpm-workspace auto-detection in getDefaultConfig.
+config.projectRoot = projectRoot;
+
+// Watch workspace root so pnpm symlinks resolve correctly
+config.watchFolders = [workspaceRoot];
+
 config.resolver = {
   ...config.resolver,
+  unstable_enableSymlinks: true,
+  nodeModulesPaths: [
+    path.resolve(projectRoot, 'node_modules'),
+    path.resolve(workspaceRoot, 'node_modules'),
+  ],
   blockList: [
-    // Exclude the api-server (server-only code)
     new RegExp(`^${escapeRegex(path.resolve(workspaceRoot, 'artifacts', 'api-server'))}[/\\\\].*$`),
-    // Exclude pnpm temp files (created by base64id / socket.io)
     /.*base64id_tmp.*/,
     /.*[/\\]\.pnpm[/\\].*_tmp.*/,
   ],
