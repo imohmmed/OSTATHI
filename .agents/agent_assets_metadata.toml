@@ -6,3 +6,9 @@ id = "6koyLBZfYlP6Vnvs1T5-M"
 uri = "file://screenshots/expo-qr-code.png"
 type = "image"
 title = "Expo Go - QR Code للتطبيق"
+
+[[outputs]]
+id = "DjYIArdD8a-D_YoGl4RL8"
+uri = "file://screenshots/expo-vps-qr.png"
+type = "image"
+title = "Expo Go — افتح التطبيق من VPS (exp://206.189.125.255:8081)"
