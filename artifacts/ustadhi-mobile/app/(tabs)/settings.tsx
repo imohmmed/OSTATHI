@@ -406,6 +406,22 @@ export default function SettingsScreen() {
                 fs={fs}
                 onPress={() => router.push('/subjects' as any)}
               />
+              <GroupRow
+                icon="images-outline"
+                iconBg="#ec4899"
+                label="إدارة البانرات"
+                colors={colors}
+                fs={fs}
+                onPress={() => router.push('/admin/banners' as any)}
+              />
+              <GroupRow
+                icon="star-outline"
+                iconBg="#06b6d4"
+                label="تقييمات الأساتذة"
+                colors={colors}
+                fs={fs}
+                onPress={() => router.push('/admin/reviews' as any)}
+              />
             </SettingGroup>
           </>
         )}

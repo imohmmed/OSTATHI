@@ -74,6 +74,9 @@ function RootLayoutNav() {
       <Stack.Screen name="admin/parents" options={{ headerShown: false }} />
       <Stack.Screen name="admin/student-detail/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="admin/teacher-detail/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/new-subject" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/banners" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/reviews" options={{ headerShown: false }} />
     </Stack>
   );
 }
